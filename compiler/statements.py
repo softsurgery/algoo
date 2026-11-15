@@ -91,8 +91,8 @@ class StatementTranslator:
                 i = next_i
                 continue
 
-            # 2. Selon <Sélecteur> ... Fin Selon
-            m_selon = re.match(r'^selon\s+(.+)$', s, re.IGNORECASE)
+            # 2. Selon <Sélecteur> [Faire] ... Fin Selon
+            m_selon = re.match(r'^selon\s+(.+?)(?:\s+faire)?$', s, re.IGNORECASE)
             if m_selon:
                 selector = self.expr_trans.translate_expression(m_selon.group(1))
                 result.append(f"{base_indent}match {selector}:")
@@ -186,6 +186,7 @@ class StatementTranslator:
         branch_body = []
         idx = start_idx
         nesting = 0
+        selon_nesting = 0
 
         while idx < len(line_tuples):
             line_no, line = line_tuples[idx]
@@ -200,6 +201,19 @@ class StatementTranslator:
             if nesting > 0:
                 if re.match(r'^(?:fin[\s_]*si|finsi)$', s, re.IGNORECASE):
                     nesting -= 1
+                branch_body.append((line_no, line))
+                idx += 1
+                continue
+
+            if re.match(r'^selon\s+.+$', s, re.IGNORECASE):
+                selon_nesting += 1
+                branch_body.append((line_no, line))
+                idx += 1
+                continue
+
+            if selon_nesting > 0:
+                if re.match(r'^(?:fin[\s_]*selon|finselon|end[\s_]*select|end[\s_]*match)$', s, re.IGNORECASE):
+                    selon_nesting -= 1
                 branch_body.append((line_no, line))
                 idx += 1
                 continue
@@ -235,40 +249,125 @@ class StatementTranslator:
         line_info = f" à la ligne {si_line_no}" if si_line_no is not None else ""
         raise MissingEndError(f"Bloc 'Si' ouvert{line_info} non fermé : 'Fin Si' manquant", line_num=si_line_no)
 
+    @staticmethod
+    def _opens_control_block(s: str) -> bool:
+        """Returns True if stripped line s opens a nested control-flow block."""
+        return bool(re.match(
+            r'^(?:pour\s+.+?\s+faire|(?:tant\s*que|tantque)(?:\s+|\s*(?=\()).+?(?:\s+|(?<=\)))faire|si\s+.+?\s+alors|selon\s+.+|répéter\b|repeter\b)',
+            s,
+            re.IGNORECASE
+        ))
+
+    @staticmethod
+    def _closes_control_block(s: str) -> bool:
+        """Returns True if stripped line s closes a nested control-flow block."""
+        return bool(re.match(
+            r'^(?:fin[\s_]*si|finsi|end[\s_]*if|fin[\s_]*pour|finpour|end[\s_]*for|fin[\s_]*tant[\s_]*que|fintantque|fintanqtue|end[\s_]*while|fin[\s_]*selon|finselon|end[\s_]*select|end[\s_]*match|jusqu[\'’\s]?(?:à|a|e)?\b|until\b)',
+            s,
+            re.IGNORECASE
+        ))
+
+    @staticmethod
+    def _split_selon_case(s: str):
+        """Splits 'pattern : action' if ':' appears at top level outside quotes and brackets."""
+        in_quote = None
+        escaped = False
+        depth = 0
+        for idx, ch in enumerate(s):
+            if escaped:
+                escaped = False
+                continue
+            if ch == '\\' and in_quote:
+                escaped = True
+                continue
+            if ch in ('"', "'"):
+                if in_quote == ch:
+                    in_quote = None
+                elif in_quote is None:
+                    in_quote = ch
+                continue
+            if in_quote:
+                continue
+            if ch in ('(', '['):
+                depth += 1
+            elif ch in (')', ']') and depth > 0:
+                depth -= 1
+            elif ch == ':' and depth == 0:
+                return s[:idx].strip(), s[idx + 1:].strip()
+        return None
+
     def parse_selon_block(self, line_tuples: list, start_idx: int, indent_level: int, selector: str, selon_line_no: int = None):
-        """Parses Selon choices into match/case."""
+        """Parses Selon choices (single-line or multi-line, with nested blocks) into match/case."""
         result = []
         base_indent = "    " * indent_level
         idx = start_idx
+        nesting = 0
+        current_branch_open = False
+        branch_lines = []
+
+        def flush_branch():
+            nonlocal branch_lines, current_branch_open
+            if not current_branch_open:
+                return
+            sub = self.translate_statements(branch_lines, indent_level + 2)
+            has_code = any(l.strip() and not l.strip().startswith('#') for l in sub)
+            if sub:
+                result.extend(sub)
+            if not has_code:
+                result.append(f"{base_indent}        pass")
+            branch_lines = []
+            current_branch_open = False
 
         while idx < len(line_tuples):
             line_no, line = line_tuples[idx]
             s = line.strip()
 
-            if re.match(r'^(?:fin[\s_]*selon|finselon)$', s, re.IGNORECASE):
+            if nesting > 0:
+                if self._opens_control_block(s):
+                    nesting += 1
+                elif self._closes_control_block(s):
+                    nesting -= 1
+                if current_branch_open:
+                    branch_lines.append((line_no, line))
                 idx += 1
-                return result, idx
+                continue
+
+            if re.match(r'^(?:fin[\s_]*selon|finselon|end[\s_]*select|end[\s_]*match)$', s, re.IGNORECASE):
+                flush_branch()
+                return result, idx + 1
 
             if not s:
                 idx += 1
                 continue
 
-            # Check for Sinon
-            m_sinon = re.match(r'^sinon\s*(?::)?\s*(.*)$', s, re.IGNORECASE)
-            if m_sinon:
-                rest = m_sinon.group(1)
-                result.append(f"{base_indent}    case _:")
-                if rest:
-                    stmt = self.translate_single_statement(rest, line_no)
-                    result.append(f"{base_indent}        {stmt}")
+            if s.startswith("#"):
+                if current_branch_open:
+                    branch_lines.append((line_no, line))
+                else:
+                    result.append(f"{base_indent}    # {s[1:].strip()}")
                 idx += 1
                 continue
 
-            # Case: pattern : action
-            if ':' in s:
-                pattern, action = s.split(':', 1)
-                pattern = pattern.strip()
-                action = action.strip()
+            # Check for Sinon (default branch)
+            m_sinon = re.match(r'^sinon(?:\s*:\s*(.*)|\s+(.*)|)$', s, re.IGNORECASE)
+            if m_sinon:
+                flush_branch()
+                result.append(f"{base_indent}    case _:")
+                current_branch_open = True
+                rest = (m_sinon.group(1) if m_sinon.group(1) is not None else m_sinon.group(2)) or ""
+                rest = rest.strip()
+                if rest:
+                    if self._opens_control_block(rest):
+                        nesting += 1
+                    branch_lines.append((line_no, rest))
+                idx += 1
+                continue
+
+            # Case: pattern : [action]
+            split_res = self._split_selon_case(s)
+            if split_res and split_res[0]:
+                pattern, action = split_res
+                flush_branch()
 
                 if '..' in pattern:
                     v1, v2 = pattern.split('..', 1)
@@ -276,18 +375,22 @@ class StatementTranslator:
                     v2_py = self.expr_trans.translate_expression(v2.strip())
                     result.append(f"{base_indent}    case s if ({v1_py} <= s <= {v2_py}):")
                 else:
-                    vals = [self.expr_trans.translate_expression(v.strip()) for v in pattern.split(',') if v.strip()]
+                    vals = [self.expr_trans.translate_expression(v.strip()) for v in split_arguments(pattern) if v.strip()]
                     pattern_py = " | ".join(vals)
                     result.append(f"{base_indent}    case {pattern_py}:")
 
+                current_branch_open = True
                 if action:
-                    stmt = self.translate_single_statement(action, line_no)
-                    result.append(f"{base_indent}        {stmt}")
-                else:
-                    result.append(f"{base_indent}        pass")
+                    if self._opens_control_block(action):
+                        nesting += 1
+                    branch_lines.append((line_no, action))
                 idx += 1
                 continue
 
+            if self._opens_control_block(s):
+                nesting += 1
+            if current_branch_open:
+                branch_lines.append((line_no, line))
             idx += 1
 
         line_info = f" à la ligne {selon_line_no}" if selon_line_no is not None else ""

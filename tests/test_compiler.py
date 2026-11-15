@@ -65,6 +65,77 @@ class TestAlgoTranspiler(unittest.TestCase):
         ns = {'__name__': '__main__'}
         exec(py, ns)
 
+    def test_selon_multiline_and_nested_si(self):
+        algo = """
+        ALGORITHME Exercice
+        DEBUT
+          ecrire("Mois=")
+          lire(m)
+          Selon m
+            1,3,5,7,8,10,12: j <- 31
+            4,6,9,11: j <- 30
+            2:
+              ecrire("Année=")
+              lire(a)
+              Si (a MOD 4 == 0) Alors
+                j <- 29
+              Sinon
+                j <- 28
+              Finsi
+            Sinon
+              j <- -1
+              ecrire("Mois Invalide : ", m)
+          Fin Selon
+        FIN
+        Tableau de déclaration des objets globaux
+        Objet  Type / Nature
+        m, j, a : Entier
+        """
+        py = self.transpiler.compile(algo)
+        self.assertIn("case 2:", py)
+        self.assertIn("if (a % 4 == 0):", py)
+        self.assertIn("case _:", py)
+        self.assertIn('print("Mois Invalide : ", m, end=\'\')', py)
+
+        import builtins
+        from unittest.mock import patch
+        with patch.object(builtins, 'input', side_effect=['2', '2024']), patch('builtins.print'):
+            ns = {'__name__': '__main__'}
+            exec(py, ns)
+        with patch.object(builtins, 'input', side_effect=['13']), patch('builtins.print') as mock_print:
+            ns = {'__name__': '__main__'}
+            exec(py, ns)
+            mock_print.assert_any_call("Mois Invalide : ", 13, end='')
+
+    def test_selon_nested_in_si_and_selon(self):
+        algo = """
+        ALGORITHME TestNestedSelon
+        DEBUT
+          x <- 1
+          y <- 2
+          Si x > 0 Alors
+            Selon y
+              1 : res <- 10
+              2 :
+                Selon x
+                  1 : res <- 20
+                  Sinon res <- 0
+                Fin Selon
+              Sinon
+                res <- -1
+            Fin Selon
+          Sinon
+            res <- -99
+          Finsi
+        FIN
+        Tableau de déclaration des objets globaux
+        Objet  Type / Nature
+        x, y, res : Entier
+        """
+        py = self.transpiler.compile(algo)
+        ns = {'__name__': '__main__'}
+        exec(py, ns)
+
     def test_predefined_functions(self):
         algo = """
         ALGORITHME TestBuiltins
