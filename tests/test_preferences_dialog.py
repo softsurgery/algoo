@@ -170,6 +170,7 @@ class TestPreferencesDialog(unittest.TestCase):
         win = MainWindow()
         win.db = self.db
         win.apply_ui_visibility()
+        self.assertTrue(win.isMaximized())
 
         self.assertFalse(win.symbols_bar.isHidden())
         self.assertFalse(win.console.isHidden())

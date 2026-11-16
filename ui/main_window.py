@@ -54,7 +54,12 @@ class MainWindow(QMainWindow):
         empty_icon_pixmap = QPixmap(1, 1)
         empty_icon_pixmap.fill(Qt.transparent)
         self.setWindowIcon(QIcon(empty_icon_pixmap))
-        self.resize(1200, 800)
+        screen = QApplication.primaryScreen()
+        if screen is not None:
+            self.setGeometry(screen.availableGeometry())
+        else:
+            self.resize(1200, 800)
+        self.setWindowState(self.windowState() | Qt.WindowMaximized)
 
         # Database initialization & theme preference
         self.db = db or get_database()

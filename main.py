@@ -94,7 +94,7 @@ def main():
     app.setFont(font)
 
     window = MainWindow()
-    window.show()
+    window.showMaximized()
 
     sys.exit(app.exec_())
 
