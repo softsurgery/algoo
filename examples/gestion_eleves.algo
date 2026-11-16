@@ -27,6 +27,6 @@ Eleve = Enregistrement
     mention : Chaîne
 Fin Enregistrement
 
-Tableau de déclaration des objets globaux
+Tableau de déclaration des objets
 Objet       Type / Nature
 E           Eleve

@@ -51,6 +51,11 @@ class PreferencesNavigationTree(AppTreeView):
         self.item_colors.setData(0, Qt.UserRole, 2)
         self.item_colors.setSizeHint(0, QSize(0, 36))
 
+        # Category 3: Interface & Panneaux
+        self.item_interface = QTreeWidgetItem(self, ["Interface & Panneaux"])
+        self.item_interface.setData(0, Qt.UserRole, 3)
+        self.item_interface.setSizeHint(0, QSize(0, 38))
+
         self.expandAll()
 
     def update_icons(self, is_dark: bool):
@@ -60,3 +65,4 @@ class PreferencesNavigationTree(AppTreeView):
         self.cat_ed.setIcon(0, create_icon("settings", icon_color, size=24))
         self.item_font.setIcon(0, create_icon("font", sub_icon_color, size=22))
         self.item_colors.setIcon(0, create_icon("syntax", sub_icon_color, size=22))
+        self.item_interface.setIcon(0, create_icon("fullscreen", icon_color, size=24))

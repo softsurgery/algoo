@@ -1,10 +1,9 @@
 """
-Bottom action buttons (GitHub link, Close) for AboutDialog.
+Bottom action buttons (Close) for AboutDialog.
 """
 
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QPushButton
-from PyQt5.QtGui import QDesktopServices
-from PyQt5.QtCore import Qt, QUrl
+from PyQt5.QtCore import Qt
 
 
 class AboutActionsWidget(QWidget):
@@ -20,13 +19,7 @@ class AboutActionsWidget(QWidget):
         btn_layout.setContentsMargins(0, 0, 0, 0)
         btn_layout.setSpacing(10)
 
-        self.btn_github = QPushButton("Dépôt GitHub", self)
-        self.btn_github.setObjectName("about_btn_github")
-        self.btn_github.setCursor(Qt.PointingHandCursor)
-        self.btn_github.clicked.connect(
-            lambda: QDesktopServices.openUrl(QUrl("https://github.com/softsurgery/algoo"))
-        )
-        btn_layout.addWidget(self.btn_github)
+        btn_layout.addStretch()
 
         self.btn_close = QPushButton("Fermer", self)
         self.btn_close.setObjectName("about_btn_close")

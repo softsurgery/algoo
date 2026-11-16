@@ -111,12 +111,12 @@ QTabWidget::pane {
 QTabBar::tab {
     background-color: #edf2f7;
     color: #4a5568;
-    margin-left: 6px;
-    padding-left: 14px;
-    padding-right: 25px;
-    padding-top: 6px;
-    padding-bottom: 6px;
-    margin-right: 4px;
+    margin-left: 0px;
+    padding-left: 18px;
+    padding-right: 28px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    margin-right: 2px;
     border-top-left-radius: 3px;
     border-top-right-radius: 3px;
     font-weight: 500;
@@ -538,12 +538,12 @@ QTabWidget::pane {
 QTabBar::tab {
     background-color: #1e1e2e;
     color: #a6adc8;
-    margin-left: 6px;
-    padding-left: 14px;
-    padding-right: 25px;
-    padding-top: 6px;
-    padding-bottom: 6px;
-    margin-right: 4px;
+    margin-left: 0px;
+    padding-left: 18px;
+    padding-right: 28px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    margin-right: 2px;
     border-top-left-radius: 3px;
     border-top-right-radius: 3px;
     font-weight: 500;

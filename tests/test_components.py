@@ -3,17 +3,22 @@ Unit tests for reusable prop-driven UI components (AppCheckBox, AppRadioButton, 
 """
 
 import unittest
-from PyQt5.QtWidgets import QApplication, QCheckBox, QRadioButton, QComboBox, QTextBrowser, QTreeWidget, QTreeWidgetItem
+from PyQt5.QtWidgets import (
+    QApplication, QCheckBox, QRadioButton, QComboBox, QTableWidget, QTabWidget,
+    QTextBrowser, QTreeWidget, QTreeWidgetItem, QWidget,
+)
 from PyQt5.QtCore import QRect, QSize, Qt
 from PyQt5.QtGui import QImage, QPainter
 from PyQt5.QtTest import QTest
 
 from ui.components import (
     AppCheckBox,
+    AppInfoTable,
     AppMarkdownReader,
     AppRadioButton,
     AppRotatingChevron,
     AppSelect,
+    AppTabWidget,
     AppTreeView,
     NoFocusDelegate,
 )
@@ -309,6 +314,73 @@ class TestComponents(unittest.TestCase):
         self.assertIn("#ffffff", reader.styleSheet())
         reader.resize(300, 200)
         self.assertFalse(reader.grab().isNull())
+
+    def test_app_tab_widget_props_helpers_and_theme(self):
+        from ui.icons import create_icon
+
+        changed_indices = []
+        closed_indices = []
+        p1, p2, p3 = QWidget(), QWidget(), QWidget()
+
+        tabs = AppTabWidget(
+            tabs=[
+                (p1, "First"),
+                (p2, "Second", create_icon("doc", "#2563eb", 16), "Second tip"),
+            ],
+            closable=True,
+            movable=True,
+            current_index=1,
+            is_dark=True,
+            on_current_changed=lambda idx: changed_indices.append(idx),
+            on_tab_close_requested=lambda idx: closed_indices.append(idx),
+            object_name="main_tabs",
+        )
+        self.assertIsInstance(tabs, QTabWidget)
+        self.assertEqual(tabs.count(), 2)
+        self.assertEqual(tabs.currentIndex(), 1)
+        self.assertTrue(tabs.tabsClosable())
+        self.assertTrue(tabs.isMovable())
+        self.assertEqual(tabs.tabText(0), "First")
+        self.assertEqual(tabs.tabToolTip(1), "Second tip")
+        self.assertEqual(tabs.objectName(), "main_tabs")
+        self.assertIn("#1e1e2e", tabs.styleSheet())
+
+        # ensure_tab adds missing widget and returns existing index if already present
+        idx_p3 = tabs.ensure_tab(p3, "Third", create_icon("folder", "#2563eb", 16))
+        self.assertEqual(idx_p3, 2)
+        self.assertEqual(tabs.ensure_tab(p3, "Third"), 2)
+
+        tabs.setCurrentIndex(0)
+        self.assertIn(0, changed_indices)
+
+        tabs.tabCloseRequested.emit(1)
+        self.assertEqual(closed_indices, [1])
+
+        self.assertTrue(tabs.remove_tab_widget(p3))
+        self.assertFalse(tabs.remove_tab_widget(p3))
+        self.assertEqual(tabs.count(), 2)
+
+        tabs.set_dark_mode(False)
+        self.assertIn("#ffffff", tabs.styleSheet())
+
+    def test_app_info_table_props_and_theme(self):
+        tbl = AppInfoTable(
+            rows=[("Développeur", "softsurgery"), ("Moteur", "Python 3")],
+            is_dark=True,
+            object_name="info_tbl",
+        )
+        self.assertIsInstance(tbl, QTableWidget)
+        self.assertEqual(tbl.objectName(), "info_tbl")
+        self.assertEqual(tbl.rowCount(), 2)
+        self.assertEqual(tbl.columnCount(), 2)
+        self.assertEqual(tbl.item(0, 0).text(), "Développeur")
+        self.assertEqual(tbl.item(0, 1).text(), "softsurgery")
+        self.assertIn("#cdd6f4", tbl.styleSheet())
+
+        tbl.set_rows([("A", "1"), ("B", "2"), ("C", "3")])
+        self.assertEqual(tbl.rowCount(), 3)
+        tbl.set_dark_mode(False)
+        self.assertIn("#334155", tbl.styleSheet())
 
 
 if __name__ == "__main__":

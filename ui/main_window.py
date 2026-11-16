@@ -16,13 +16,14 @@ if sys.platform.startswith("linux") and os.environ.get("DISPLAY"):
 
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
-    QTabWidget, QToolBar, QAction, QFileDialog, QMessageBox,
+    QToolBar, QAction, QFileDialog, QMessageBox,
     QStatusBar, QLabel, QMenu, QToolButton, QApplication, QDialog
 )
 from PyQt5.QtGui import QIcon, QFont, QKeySequence, QDesktopServices, QPixmap
-from PyQt5.QtCore import Qt, QFileInfo, QUrl, QSettings, QTimer
+from PyQt5.QtCore import Qt, QFileInfo, QUrl, QSettings, QTimer, QSize
 
 from compiler.transpiler import AlgoTranspiler, CompileError
+from ui.components import AppCloseButton, AppTabWidget
 from ui.editor import AlgoCodeEditor
 from ui.console import AlgoConsole
 from ui.python_view import PythonView
@@ -53,7 +54,12 @@ class MainWindow(QMainWindow):
         empty_icon_pixmap = QPixmap(1, 1)
         empty_icon_pixmap.fill(Qt.transparent)
         self.setWindowIcon(QIcon(empty_icon_pixmap))
-        self.resize(1200, 800)
+        screen = QApplication.primaryScreen()
+        if screen is not None:
+            self.setGeometry(screen.availableGeometry())
+        else:
+            self.resize(1200, 800)
+        self.setWindowState(self.windowState() | Qt.WindowMaximized)
 
         # Database initialization & theme preference
         self.db = db or get_database()
@@ -88,6 +94,7 @@ class MainWindow(QMainWindow):
         self._setup_menus()
         self._setup_statusbar()
         self.apply_theme(recreate_native=False)
+        self.apply_ui_visibility()
 
         # Restore latest opened files or open starter default example
         self._restore_opened_files()
@@ -107,6 +114,7 @@ class MainWindow(QMainWindow):
         self.symbols_bar = SymbolsBar(self, is_dark=self.is_dark_mode)
         self.symbols_bar.setObjectName("symbols_bar")
         self.symbols_bar.insert_requested.connect(self._on_insert_symbol)
+        self.symbols_bar.close_requested.connect(lambda: self.set_panel_visible("symbols_bar", False))
         main_layout.addWidget(self.symbols_bar)
 
         # 2. Main Horizontal Splitter (Editor + Console on left, Side panels on right)
@@ -116,18 +124,20 @@ class MainWindow(QMainWindow):
         self.v_splitter = QSplitter(Qt.Vertical)
 
         # Multi-tab code editor
-        self.tab_widget = QTabWidget()
-        self.tab_widget.setTabsClosable(True)
-        self.tab_widget.setMovable(True)
-        self.tab_widget.setFont(QFont("SansSerif", 10))
-        self.tab_widget.tabCloseRequested.connect(self._on_close_tab)
-        self.tab_widget.currentChanged.connect(self._on_tab_changed)
+        self.tab_widget = AppTabWidget(
+            closable=True,
+            movable=True,
+            font=QFont("SansSerif", 10),
+            on_tab_close_requested=self._on_close_tab,
+            on_current_changed=self._on_tab_changed,
+        )
 
         self.v_splitter.addWidget(self.tab_widget)
 
         # Interactive Console
         self.console = AlgoConsole(self, is_dark=self.is_dark_mode)
         self.console.error_line_clicked.connect(self._on_error_line_clicked)
+        self.console.close_requested.connect(lambda: self.set_panel_visible("console", False))
         register_console(self.console)
         self.v_splitter.addWidget(self.console)
 
@@ -138,26 +148,30 @@ class MainWindow(QMainWindow):
         self.h_splitter.addWidget(self.v_splitter)
 
         # Right Side Panel (Thonny style side tabs)
-        self.side_tabs = QTabWidget()
-        self.side_tabs.setTabPosition(QTabWidget.North)
-
-        # 1. Python Code View
         self.python_view = PythonView(self, is_dark=self.is_dark_mode)
-        self.side_tabs.addTab(self.python_view, "Code Python")
-
-        # 2. TDO View (Separate TDOG and TDOL tables)
         self.tdo_view = TDOView(self, is_dark=self.is_dark_mode)
-        self.side_tabs.addTab(self.tdo_view, "Tableau T.D.O.")
-
-        # 3. TDNT View
         self.tdnt_view = TDNTView(self, is_dark=self.is_dark_mode)
-        self.side_tabs.addTab(self.tdnt_view, "Tableau T.D.N.T.")
-
-        # 4. Guide & Assistant View
         self.assistant_view = AssistantView(self, is_dark=self.is_dark_mode)
-        self.side_tabs.addTab(self.assistant_view, "Guide et Aide")
 
-        self.side_tabs.currentChanged.connect(self._on_side_tab_changed)
+        self.side_tabs = AppTabWidget(
+            tabs=[
+                (self.python_view, "Code Python"),
+                (self.tdo_view, "Tableau T.D.O."),
+                (self.tdnt_view, "Tableau T.D.N.T."),
+                (self.assistant_view, "Guide et Aide"),
+            ],
+            tab_position=AppTabWidget.North,
+            on_current_changed=self._on_side_tab_changed,
+        )
+
+        self.btn_close_side_panel = AppCloseButton(
+            self.side_tabs,
+            tooltip="Fermer le panneau latéral",
+            is_dark=self.is_dark_mode,
+            on_clicked=lambda: self.set_panel_visible("side_panel", False),
+        )
+        self.side_tabs.setCornerWidget(self.btn_close_side_panel, Qt.TopRightCorner)
+        self.btn_close_side_panel.show()
 
         self.h_splitter.addWidget(self.side_tabs)
 
@@ -332,19 +346,19 @@ class MainWindow(QMainWindow):
         # Affichage
         menu_view = menubar.addMenu("&Affichage")
         act_show_py = QAction("Code Python", self)
-        act_show_py.triggered.connect(lambda: self.side_tabs.setCurrentWidget(self.python_view))
+        act_show_py.triggered.connect(lambda: self._show_side_tab(self.python_view))
         menu_view.addAction(act_show_py)
 
         act_show_tdo = QAction("Tableau T.D.O.", self)
-        act_show_tdo.triggered.connect(lambda: self.side_tabs.setCurrentWidget(self.tdo_view))
+        act_show_tdo.triggered.connect(lambda: self._show_side_tab(self.tdo_view))
         menu_view.addAction(act_show_tdo)
 
         act_show_tdnt = QAction("Tableau T.D.N.T.", self)
-        act_show_tdnt.triggered.connect(lambda: self.side_tabs.setCurrentWidget(self.tdnt_view))
+        act_show_tdnt.triggered.connect(lambda: self._show_side_tab(self.tdnt_view))
         menu_view.addAction(act_show_tdnt)
 
         act_show_guide = QAction("Guide et Aide", self)
-        act_show_guide.triggered.connect(lambda: self.side_tabs.setCurrentWidget(self.assistant_view))
+        act_show_guide.triggered.connect(lambda: self._show_side_tab(self.assistant_view))
         menu_view.addAction(act_show_guide)
         menu_view.addSeparator()
 
@@ -372,10 +386,6 @@ class MainWindow(QMainWindow):
 
         # Aide
         menu_help = menubar.addMenu("&Aide")
-        act_github = QAction("Dépôt GitHub (softsurgery/algoo)", self)
-        act_github.setToolTip("Ouvrir la page GitHub du projet Algoo")
-        act_github.triggered.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/softsurgery/algoo")))
-        menu_help.addAction(act_github)
 
         self.act_check_updates = QAction("Vérifier les mises à jour...", self)
         self.act_check_updates.setToolTip("Vérifier si une nouvelle version d'Algoo est disponible")
@@ -541,6 +551,8 @@ class MainWindow(QMainWindow):
             self.assistant_view.set_dark_mode(self.is_dark_mode)
         if hasattr(self, "snippets_view"):
             self.snippets_view.set_dark_mode(self.is_dark_mode)
+        if hasattr(self, "btn_close_side_panel"):
+            self.btn_close_side_panel.set_dark_mode(self.is_dark_mode)
 
         # Propagate to all open editors
         if hasattr(self, "tab_widget"):
@@ -608,6 +620,34 @@ class MainWindow(QMainWindow):
             if hasattr(self.db, "set_dark_mode"):
                 self.db.set_dark_mode(self.is_dark_mode)
         self.apply_theme(recreate_native=False)
+        self.apply_ui_visibility()
+
+    def _show_side_tab(self, widget: QWidget):
+        """Ensures the side panel is visible and switches to `widget`."""
+        self.set_panel_visible("side_panel", True)
+        self.side_tabs.setCurrentWidget(widget)
+
+    def set_panel_visible(self, key: str, visible: bool, persist: bool = True):
+        """Shows or hides a main UI panel ('symbols_bar', 'console', 'side_panel')."""
+        panel_map = {
+            "symbols_bar": getattr(self, "symbols_bar", None),
+            "console": getattr(self, "console", None),
+            "side_panel": getattr(self, "side_tabs", None),
+        }
+        widget = panel_map.get(key)
+        if widget is not None:
+            widget.setVisible(bool(visible))
+        if persist and hasattr(self, "db") and self.db and hasattr(self.db, "set_ui_visibility"):
+            self.db.set_ui_visibility({key: bool(visible)})
+
+    def apply_ui_visibility(self):
+        """Applies persisted UI panel visibility from database."""
+        if hasattr(self, "db") and self.db and hasattr(self.db, "get_ui_visibility"):
+            vis = self.db.get_ui_visibility()
+        else:
+            vis = {"symbols_bar": True, "console": True, "side_panel": True}
+        for key, visible in vis.items():
+            self.set_panel_visible(key, visible, persist=False)
 
     # -------------------------------------------------------------------------
     # Editor & Tabs Management
