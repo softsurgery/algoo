@@ -386,10 +386,6 @@ class MainWindow(QMainWindow):
 
         # Aide
         menu_help = menubar.addMenu("&Aide")
-        act_github = QAction("Dépôt GitHub (softsurgery/algoo)", self)
-        act_github.setToolTip("Ouvrir la page GitHub du projet Algoo")
-        act_github.triggered.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/softsurgery/algoo")))
-        menu_help.addAction(act_github)
 
         self.act_check_updates = QAction("Vérifier les mises à jour...", self)
         self.act_check_updates.setToolTip("Vérifier si une nouvelle version d'Algoo est disponible")

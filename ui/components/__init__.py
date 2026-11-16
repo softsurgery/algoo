@@ -10,6 +10,7 @@ from ui.components.chevron import (
     chevron_color,
     draw_chevron,
 )
+from ui.components.info_table import AppInfoTable
 from ui.components.markdown_reader import (
     AppMarkdownReader,
     highlight_algo_syntax,
@@ -23,6 +24,7 @@ from ui.components.tree_view import AppTreeView, NoFocusDelegate
 __all__ = [
     "AppCheckBox",
     "AppCloseButton",
+    "AppInfoTable",
     "AppMarkdownReader",
     "AppRadioButton",
     "AppRotatingChevron",

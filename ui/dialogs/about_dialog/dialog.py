@@ -47,13 +47,12 @@ class AboutDialog(QDialog):
         main_layout.addWidget(self.desc_label)
 
         # Card container with details
-        self.card = AboutDetailsCard(self)
-        self.details_label = self.card.details_label
+        self.card = AboutDetailsCard(self, is_dark=self.is_dark)
+        self.details_table = self.card.details_table
         main_layout.addWidget(self.card)
 
         # Bottom buttons
         self.actions_widget = AboutActionsWidget(self, on_close=self.accept)
-        self.btn_github = self.actions_widget.btn_github
         self.btn_close = self.actions_widget.btn_close
         main_layout.addWidget(self.actions_widget)
 

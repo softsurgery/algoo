@@ -4,7 +4,7 @@ Unit tests for reusable prop-driven UI components (AppCheckBox, AppRadioButton, 
 
 import unittest
 from PyQt5.QtWidgets import (
-    QApplication, QCheckBox, QRadioButton, QComboBox, QTabWidget,
+    QApplication, QCheckBox, QRadioButton, QComboBox, QTableWidget, QTabWidget,
     QTextBrowser, QTreeWidget, QTreeWidgetItem, QWidget,
 )
 from PyQt5.QtCore import QRect, QSize, Qt
@@ -13,6 +13,7 @@ from PyQt5.QtTest import QTest
 
 from ui.components import (
     AppCheckBox,
+    AppInfoTable,
     AppMarkdownReader,
     AppRadioButton,
     AppRotatingChevron,
@@ -361,6 +362,25 @@ class TestComponents(unittest.TestCase):
 
         tabs.set_dark_mode(False)
         self.assertIn("#ffffff", tabs.styleSheet())
+
+    def test_app_info_table_props_and_theme(self):
+        tbl = AppInfoTable(
+            rows=[("Développeur", "softsurgery"), ("Moteur", "Python 3")],
+            is_dark=True,
+            object_name="info_tbl",
+        )
+        self.assertIsInstance(tbl, QTableWidget)
+        self.assertEqual(tbl.objectName(), "info_tbl")
+        self.assertEqual(tbl.rowCount(), 2)
+        self.assertEqual(tbl.columnCount(), 2)
+        self.assertEqual(tbl.item(0, 0).text(), "Développeur")
+        self.assertEqual(tbl.item(0, 1).text(), "softsurgery")
+        self.assertIn("#cdd6f4", tbl.styleSheet())
+
+        tbl.set_rows([("A", "1"), ("B", "2"), ("C", "3")])
+        self.assertEqual(tbl.rowCount(), 3)
+        tbl.set_dark_mode(False)
+        self.assertIn("#334155", tbl.styleSheet())
 
 
 if __name__ == "__main__":
