@@ -161,11 +161,12 @@ class AlgoValidator:
                     line_num=sub_line
                 )
 
-        # 2. Validate main algorithm TDOG table under main
+        # 2. Validate main algorithm TDO / TDOG table under main
         has_main_debut = sections.get('has_main_debut', False)
         has_main_fin = sections.get('has_main_fin', False)
         main_lines = sections.get('main', [])
         has_header = bool(sections.get('header', []))
+        has_subprograms = bool(sections.get('subprograms', []))
 
         # If there is a main program body or header
         if has_main_debut or has_main_fin or main_lines or has_header:
@@ -178,9 +179,27 @@ class AlgoValidator:
                         main_start = main_lines[0][0]
                     else:
                         main_start = len(raw_lines) or 1
+                if has_subprograms:
+                    raise MissingTypeError(
+                        "Tableau de déclaration des objets globaux (TDOG) manquant pour l'algorithme principal (doit être placé sous l'algorithme)",
+                        line_num=main_start
+                    )
                 raise MissingTypeError(
-                    "Tableau de déclaration des objets globaux (TDOG) manquant pour l'algorithme principal (doit être placé sous l'algorithme)",
+                    "Tableau de déclaration des objets (TDO) manquant pour l'algorithme principal (doit être placé sous l'algorithme)",
                     line_num=main_start
+                )
+
+            table_kind = sections.get('main_objects_table_kind')
+            table_line = sections.get('main_objects_table_line') or sections.get('tdog_start_line')
+            if not has_subprograms and table_kind == 'tdog':
+                raise InvalidStructureError(
+                    "Aucun sous-programme n'est présent : utilisez 'Tableau de déclaration des objets (TDO)' au lieu de 'Tableau de déclaration des objets globaux (TDOG)'",
+                    line_num=table_line
+                )
+            if has_subprograms and table_kind == 'tdo':
+                raise InvalidStructureError(
+                    "Des sous-programmes sont présents : utilisez 'Tableau de déclaration des objets globaux (TDOG)' au lieu de 'Tableau de déclaration des objets (TDO)'",
+                    line_num=table_line
                 )
 
         # 3. Validate TDNT (at most one TDNT table in the program)

@@ -546,7 +546,10 @@ class AssistantView(QWidget):
             tips.append("Chaque sous-programme doit être suivi de son <b>Tableau de déclaration des objets locaux (TDOL)</b> placé immédiatement après son <code>FIN</code>.")
             doc_recommendations.append(("Guide TDOL", "03_Tableau_Objets_Locaux_TDOL.md"))
         if "tdog" in low or "objets globaux" in low:
-            tips.append("L'algorithme principal doit obligatoirement posséder son <b>Tableau de déclaration des objets globaux (TDOG)</b> placé sous son <code>FIN</code>.")
+            tips.append("L'algorithme principal doit posséder un <b>Tableau de déclaration des objets globaux (TDOG)</b> lorsqu'il y a des sous-programmes, ou un <b>Tableau de déclaration des objets (TDO)</b> s'il n'y a aucun sous-programme.")
+            doc_recommendations.append(("Guide TDOG", "02_Tableau_Objets_Globaux_TDOG.md"))
+        elif "tdo" in low or "déclaration des objets" in low:
+            tips.append("Lorsqu'aucun sous-programme n'est présent, l'algorithme principal doit posséder un <b>Tableau de déclaration des objets (TDO)</b> placé sous son <code>FIN</code>.")
             doc_recommendations.append(("Guide TDOG", "02_Tableau_Objets_Globaux_TDOG.md"))
         if "nameerror" in low or "not defined" in low or "non déclaré" in low:
             tips.append("Assurez-vous que l'objet est bien déclaré dans la table correspondante (<b>TDOL</b> pour les sous-programmes ou <b>TDOG</b> pour l'algorithme) avec son type.")

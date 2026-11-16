@@ -36,7 +36,7 @@ class TDOTableCard(QWidget):
         b_layout.setContentsMargins(8, 2, 8, 2)
 
         kind = self.table_info.get('kind', 'tdog')
-        icon_symbol = "🌐" if kind == 'tdog' else "📦"
+        icon_symbol = "🌐" if kind in ('tdo', 'tdog') else "📦"
         title_text = f"{icon_symbol} {self.table_info.get('title', 'Tableau de déclaration')}"
 
         self.lbl_title = QLabel(title_text)

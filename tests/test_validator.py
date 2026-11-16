@@ -4,7 +4,7 @@ Verifies that:
 - END is mandatory (algorithm, subprogram, and block structures).
 - Types are mandatory (variables, parameters, return types, TDO entries).
 - Every subprogram must have a Tableau de déclaration des objets locaux (TDOL) after it.
-- The main algorithm must have a Tableau de déclaration des objets globaux (TDOG) under it.
+- The main algorithm must have a Tableau de déclaration des objets (TDOG) under it.
 - Functions and procedures called in main or other subprograms must be declared.
 """
 
@@ -32,7 +32,7 @@ class TestAlgoValidator(unittest.TestCase):
         ALGORITHME SansFin
         DEBUT
           x <- 1
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         x : Entier
         """
         with self.assertRaises(MissingEndError) as cm:
@@ -43,7 +43,7 @@ class TestAlgoValidator(unittest.TestCase):
         code = """
         ALGORITHME SansDebutNiFin
         x <- 1
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         x : Entier
         """
         with self.assertRaises(MissingEndError) as cm:
@@ -78,7 +78,7 @@ class TestAlgoValidator(unittest.TestCase):
         DEBUT
           x <- 42
         END
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         x : Entier
         """
         py = self.transpiler.compile(code)
@@ -91,7 +91,7 @@ class TestAlgoValidator(unittest.TestCase):
           Si x > 0 Alors
             x <- x - 1
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         x : Entier
         """
         with self.assertRaises(MissingEndError) as cm:
@@ -105,7 +105,7 @@ class TestAlgoValidator(unittest.TestCase):
           Pour i de 1 à 10 Faire
             s <- s + i
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         s, i : Entier
         """
         with self.assertRaises(MissingEndError) as cm:
@@ -119,7 +119,7 @@ class TestAlgoValidator(unittest.TestCase):
           Tant que x < 10 Faire
             x <- x + 1
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         x : Entier
         """
         with self.assertRaises(MissingEndError) as cm:
@@ -133,7 +133,7 @@ class TestAlgoValidator(unittest.TestCase):
           tantque( x < 10 ) faire
             x <- x + 1
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         x : Entier
         """
         with self.assertRaises(MissingEndError) as cm:
@@ -147,7 +147,7 @@ class TestAlgoValidator(unittest.TestCase):
           Répéter
             x <- x + 1
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         x : Entier
         """
         with self.assertRaises(MissingEndError) as cm:
@@ -161,7 +161,7 @@ class TestAlgoValidator(unittest.TestCase):
           Selon x
             1 : x <- 2
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         x : Entier
         """
         with self.assertRaises(MissingEndError) as cm:
@@ -192,29 +192,94 @@ class TestAlgoValidator(unittest.TestCase):
 
     def test_main_missing_tdog_rejected(self):
         code = """
-        ALGORITHME SansTDOG
+        ALGORITHME SansTDO
         DEBUT
           x <- 10
         FIN
         """
         with self.assertRaises(MissingTypeError) as cm:
             self.transpiler.compile(code)
-        self.assertIn("TDOG", str(cm.exception))
+        self.assertIn("TDO", str(cm.exception))
 
     def test_tdog_must_be_under_main(self):
         code = """
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         x : Entier
 
-        ALGORITHME TDOGEnHaut
+        ALGORITHME TDOEnHaut
         DEBUT
           x <- 10
         FIN
         """
         with self.assertRaises(MissingTypeError) as cm:
             self.transpiler.compile(code)
-        self.assertIn("TDOG", str(cm.exception))
+        self.assertIn("TDO", str(cm.exception))
         self.assertIn("placé sous l'algorithme", str(cm.exception))
+
+    def test_tdog_rejected_when_no_subprogram(self):
+        code = """
+        ALGORITHME SansSousProg
+        DEBUT
+          x <- 10
+        FIN
+        Tableau de déclaration des objets globaux
+        x : Entier
+        """
+        with self.assertRaises(InvalidStructureError) as cm:
+            self.transpiler.compile(code)
+        self.assertIn("TDO", str(cm.exception))
+        self.assertIn("TDOG", str(cm.exception))
+
+    def test_tdo_rejected_when_subprograms_present(self):
+        code = """
+        Procedure Saluer()
+        DEBUT
+          Ecrire("Bonjour")
+        FIN
+        Tableau de déclaration des objets locaux
+        /
+
+        ALGORITHME AvecSousProg
+        DEBUT
+          Saluer()
+        FIN
+        Tableau de déclaration des objets
+        Saluer : Procédure
+        """
+        with self.assertRaises(InvalidStructureError) as cm:
+            self.transpiler.compile(code)
+        self.assertIn("TDOG", str(cm.exception))
+        self.assertIn("TDO", str(cm.exception))
+
+    def test_tdo_accepted_when_no_subprogram(self):
+        code = """
+        ALGORITHME AvecTDO
+        DEBUT
+          x <- 10
+        FIN
+        TDO
+        x : Entier
+        """
+        py = self.transpiler.compile(code)
+        self.assertIn("x = 10", py)
+
+    def test_main_missing_tdog_with_subprogram_rejected(self):
+        code = """
+        Procedure Saluer()
+        DEBUT
+          Ecrire("Bonjour")
+        FIN
+        Tableau de déclaration des objets locaux
+        /
+
+        ALGORITHME SansTDOG
+        DEBUT
+          Saluer()
+        FIN
+        """
+        with self.assertRaises(MissingTypeError) as cm:
+            self.transpiler.compile(code)
+        self.assertIn("TDOG", str(cm.exception))
 
     # -------------------------------------------------------------------------
     # Mandatory Subprogram Declaration Tests (Called functions/procedures)
@@ -329,7 +394,7 @@ class TestAlgoValidator(unittest.TestCase):
         DEBUT
           valeur_inconnue <- 123
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         /
         """
         with self.assertRaises(MissingTypeError) as cm:
@@ -344,7 +409,7 @@ class TestAlgoValidator(unittest.TestCase):
           a <- 1
           b <- 2
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         a : Entier
         """
         with self.assertRaises(MissingTypeError) as cm:
@@ -417,7 +482,7 @@ class TestAlgoValidator(unittest.TestCase):
         DEBUT
           x <- 10
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         x :
         """
         with self.assertRaises(MissingTypeError) as cm:
@@ -430,7 +495,7 @@ class TestAlgoValidator(unittest.TestCase):
         DEBUT
           x <- 10
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         Objet Type
         x
         """
@@ -450,7 +515,7 @@ class TestAlgoValidator(unittest.TestCase):
           nom : Chaine
           age : Entier
         Fin Enregistrement
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         E : Personne
         """
         py = self.transpiler.compile(code)

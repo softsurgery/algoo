@@ -275,16 +275,30 @@ def extract_all_symbols(algo_code: str, custom_types_extra: dict = None) -> dict
     variables = []
     subprograms_meta = []
 
-    # 1. Global Objects (TDOG)
-    tdog_table = {
-        'id': 'tdog',
-        'title': 'Tableau de Déclaration des Objets Globaux (T.D.O.G.)',
-        'short_name': 'T.D.O.G. (Objets Globaux)',
-        'kind': 'tdog',
-        'subprogram_name': None,
-        'header': None,
-        'objects': []
-    }
+    # 1. Main Objects Table (TDOG when subprograms exist, TDO otherwise)
+    has_subprograms = bool(blocks.get('subprograms', []))
+    if has_subprograms:
+        tdog_table = {
+            'id': 'tdog',
+            'title': 'Tableau de Déclaration des Objets Globaux (T.D.O.G.)',
+            'short_name': 'T.D.O.G. (Objets Globaux)',
+            'kind': 'tdog',
+            'subprogram_name': None,
+            'header': None,
+            'objects': []
+        }
+        scope_display_label = 'Globale (TDOG)'
+    else:
+        tdog_table = {
+            'id': 'tdo',
+            'title': 'Tableau de Déclaration des Objets (T.D.O.)',
+            'short_name': 'T.D.O. (Objets)',
+            'kind': 'tdo',
+            'subprogram_name': None,
+            'header': None,
+            'objects': []
+        }
+        scope_display_label = 'Globale (TDO)'
 
     global_items = parse_table_declaration_lines(blocks.get('objects', []))
     for item in global_items:
@@ -298,7 +312,7 @@ def extract_all_symbols(algo_code: str, custom_types_extra: dict = None) -> dict
             'name': name,
             'type': typ,
             'scope': 'Globale',
-            'scope_display': 'Globale (TDOG)',
+            'scope_display': scope_display_label,
             'role': 'sous_programme' if is_sub else 'variable_globale',
             'is_subprogram': is_sub,
             'py_equiv': py_equiv

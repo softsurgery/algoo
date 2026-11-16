@@ -28,7 +28,7 @@ DEBUT
   Fin Pour
 FIN
 
-Tableau de déclaration des objets globaux
+Tableau de déclaration des objets
 Objet                  Type / Nature
 M, Inv                 Tableau de 3 lignes * 4 colonnes Entier
 i, j, lignes, colonnes Entier

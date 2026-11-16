@@ -20,7 +20,7 @@ class TestAlgoTranspiler(unittest.TestCase):
           Fin Pour
           Ecrire_nl("Somme = ", s)
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         Objet  Type / Nature
         s, i   Entier
         """
@@ -37,7 +37,7 @@ class TestAlgoTranspiler(unittest.TestCase):
             x <- x * 2
           Jusqu'à x >= 16
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         Objet  Type / Nature
         x      Entier
         """
@@ -57,7 +57,7 @@ class TestAlgoTranspiler(unittest.TestCase):
             Sinon j <- 0
           Fin Selon
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         Objet  Type / Nature
         mois, j Entier
         """
@@ -87,7 +87,7 @@ class TestAlgoTranspiler(unittest.TestCase):
               ecrire("Mois Invalide : ", m)
           Fin Selon
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         Objet  Type / Nature
         m, j, a : Entier
         """
@@ -128,7 +128,7 @@ class TestAlgoTranspiler(unittest.TestCase):
             res <- -99
           Finsi
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         Objet  Type / Nature
         x, y, res : Entier
         """
@@ -150,7 +150,7 @@ class TestAlgoTranspiler(unittest.TestCase):
           num <- Estnum("1234")
           val <- Valeur("42")
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         Objet  Type / Nature
         a, l, num, val : Entier
         b, c : Réel
@@ -168,7 +168,7 @@ class TestAlgoTranspiler(unittest.TestCase):
           T[1] <- 200
           T[2] <- T[0] + T[1]
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         Objet  Type / Nature
         T      Tableau de 10 Entier
         """
@@ -296,7 +296,7 @@ class TestAlgoTranspiler(unittest.TestCase):
           Fin Tant que
           Ecrire(x)
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         x : Entier
         """
         py = self.transpiler.compile(algo)
@@ -312,32 +312,32 @@ class TestAlgoTranspiler(unittest.TestCase):
 
         # Missing Fin Enregistrement
         with self.assertRaises(CompileError) as cm:
-            self.transpiler.compile("ALGORITHME T\nDEBUT\nFIN\nTableau de déclaration des objets globaux\n/\nDéclaration des types\nRec = Enregistrement\na: Entier")
+            self.transpiler.compile("ALGORITHME T\nDEBUT\nFIN\nTableau de déclaration des objets\n/\nDéclaration des types\nRec = Enregistrement\na: Entier")
         self.assertIn("Fin Enregistrement", str(cm.exception))
 
     def test_mandatory_end_enforcement(self):
         # Missing FIN without DEBUT
         with self.assertRaises(MissingEndError):
-            self.transpiler.compile("ALGORITHME MonAlgo\nx <- 1\nTableau de déclaration des objets globaux\nx : Entier")
+            self.transpiler.compile("ALGORITHME MonAlgo\nx <- 1\nTableau de déclaration des objets\nx : Entier")
 
         # Missing FIN with DEBUT
         with self.assertRaises(MissingEndError):
-            self.transpiler.compile("ALGORITHME MonAlgo\nDEBUT\nx <- 1\nTableau de déclaration des objets globaux\nx : Entier")
+            self.transpiler.compile("ALGORITHME MonAlgo\nDEBUT\nx <- 1\nTableau de déclaration des objets\nx : Entier")
 
         # English END is accepted
-        py = self.transpiler.compile("ALGORITHME MonAlgo\nDEBUT\nx <- 1\nEND\nTableau de déclaration des objets globaux\nx : Entier")
+        py = self.transpiler.compile("ALGORITHME MonAlgo\nDEBUT\nx <- 1\nEND\nTableau de déclaration des objets\nx : Entier")
         self.assertIn("x = 1", py)
 
     def test_mandatory_types_enforcement(self):
         # Undeclared variable in main
         with self.assertRaises(MissingTypeError) as cm:
-            self.transpiler.compile("ALGORITHME MonAlgo\nDEBUT\nx <- 1\nFIN\nTableau de déclaration des objets globaux\n/")
+            self.transpiler.compile("ALGORITHME MonAlgo\nDEBUT\nx <- 1\nFIN\nTableau de déclaration des objets\n/")
         self.assertIn("non déclaré", str(cm.exception))
 
-        # Missing TDOG under main algorithm
+        # Missing TDO under main algorithm (no subprograms)
         with self.assertRaises(MissingTypeError) as cm:
             self.transpiler.compile("ALGORITHME MonAlgo\nDEBUT\nx <- 1\nFIN")
-        self.assertIn("TDOG", str(cm.exception))
+        self.assertIn("TDO", str(cm.exception))
 
         # Missing TDOL after subprogram
         algo_no_tdol = """
@@ -420,7 +420,7 @@ class TestAlgoTranspiler(unittest.TestCase):
         DEBUT
           x <- 1
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         Objet Type
         x
         """

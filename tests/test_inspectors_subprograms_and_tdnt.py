@@ -249,6 +249,24 @@ class TestSubprogramsVariablesAndTDNT(unittest.TestCase):
 
         win.close()
 
+    def test_tdo_extracted_instead_of_tdog_when_no_subprogram(self):
+        code = """
+        ALGORITHME SansSousProgramme
+        DEBUT
+          x <- 5
+        FIN
+        Tableau de déclaration des objets
+        x : Entier
+        """
+        self.transpiler.compile(code)
+        tables = self.transpiler.get_all_tdo_tables()
+        self.assertEqual(len(tables), 1)
+        self.assertEqual(tables[0]['id'], 'tdo')
+        self.assertEqual(tables[0]['kind'], 'tdo')
+        self.assertEqual(tables[0]['title'], 'Tableau de Déclaration des Objets (T.D.O.)')
+        self.assertEqual(tables[0]['short_name'], 'T.D.O. (Objets)')
+        self.assertEqual(tables[0]['objects'][0]['name'], 'x')
+
 
 if __name__ == '__main__':
     unittest.main()

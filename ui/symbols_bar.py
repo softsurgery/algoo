@@ -82,6 +82,7 @@ class SymbolsBar(QWidget):
 
         table_shortcuts = [
             ("TDNT", "Tableau de déclaration des nouveaux types\nType\nNomEnreg = Enregistrement\n    champ1 : Type1\n    champ2 : Type2\nFin Enregistrement\nTab = Tableau de 100 Entier\n", "Insérer TDNT (Nouveaux types / typedef : Enregistrement, Tableau)"),
+            ("TDO", "Tableau de déclaration des objets\nObjet          Type / Nature\n", "Insérer TDO (Objets sous l'algorithme, sans sous-programme)"),
             ("TDOG", "Tableau de déclaration des objets globaux\nObjet          Type / Nature\n", "Insérer TDOG (Objets globaux sous l'algorithme)"),
             ("TDOL", "Tableau de déclaration des objets locaux\nObjet          Type / Nature\n", "Insérer TDOL (Objets locaux après le sous-programme)"),
         ]

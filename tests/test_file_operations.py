@@ -23,7 +23,7 @@ DEBUT
   Fermer(F)
 FIN
 
-Tableau de déclaration des objets globaux
+Tableau de déclaration des objets
 Objet          Type / Nature
 F              Fichier Texte
 ligne          Chaîne
@@ -43,7 +43,7 @@ DEBUT
   Fermer(F)
 FIN
 
-Tableau de déclaration des objets globaux
+Tableau de déclaration des objets
 Objet          Type / Nature
 F              Fichier Texte
 """
@@ -66,7 +66,7 @@ DEBUT
   Fermer(F)
 FIN
 
-Tableau de déclaration des objets globaux
+Tableau de déclaration des objets
 Objet          Type / Nature
 F              Fichier de Entier
 note, note_lue Entier
@@ -88,7 +88,7 @@ DEBUT
   Fermer(F)
 FIN
 
-Tableau de déclaration des objets globaux
+Tableau de déclaration des objets
 Objet          Type / Nature
 F              Fichier Texte
 s              Chaîne
@@ -278,7 +278,7 @@ DEBUT
   fermer(f)
 FIN
 
-Tableau de déclaration des objets globaux
+Tableau de déclaration des objets
 Objet          Type / Nature
 f              Fichier Texte
 ch             Chaine

@@ -19,7 +19,7 @@ class TestTDNT(unittest.TestCase):
         DEBUT
           e.x <- 10
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         e : Enregistrement
         """
         with self.assertRaises(MissingTypeError) as cm:
@@ -114,7 +114,7 @@ class TestTDNT(unittest.TestCase):
         DEBUT
           t[0] <- 1
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         t : Tab1
         """
         with self.assertRaises(InvalidStructureError) as cm:
@@ -137,7 +137,7 @@ class TestTDNT(unittest.TestCase):
           e.moyenne <- 15.5
           Ecrire_nl(e.nom, e.age, e.moyenne)
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         e : Etudiant
         """
         py = self.transpiler.compile(code)
@@ -158,7 +158,7 @@ class TestTDNT(unittest.TestCase):
           T[0] <- 99
           Ecrire_nl(T[0])
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         T : Tab
         """
         py = self.transpiler.compile(code)
@@ -175,7 +175,7 @@ class TestTDNT(unittest.TestCase):
         DEBUT
           M[0, 0] <- 3.14
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         M : Mat
         """
         py = self.transpiler.compile(code)
@@ -219,7 +219,7 @@ class TestTDNT(unittest.TestCase):
           catalogue[0].code <- 1001
           catalogue[0].prix <- 49.9
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         catalogue : Stock
         """
         py = self.transpiler.compile(code)
@@ -235,7 +235,7 @@ class TestTDNT(unittest.TestCase):
         DEBUT
           x <- 42
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         x : MonEntier
         """
         py = self.transpiler.compile(code)

@@ -56,7 +56,7 @@ class TestDatabaseManager(unittest.TestCase):
         file2 = os.path.join(self.temp_dir.name, "test2.algo")
         for f in (file1, file2):
             with open(f, "w", encoding="utf-8") as fp:
-                fp.write("ALGORITHME Test\nDEBUT\nFIN\nTableau de déclaration des objets globaux\nObjet Type\n")
+                fp.write("ALGORITHME Test\nDEBUT\nFIN\nTableau de déclaration des objets\nObjet Type\n")
 
         # Record file1 opened
         self.db.record_file_opened(file1, is_open=True, is_active=True, tab_order=0)
@@ -92,7 +92,7 @@ class TestDatabaseManager(unittest.TestCase):
         f2 = os.path.join(self.temp_dir.name, "tab2.algo")
         for f in (f1, f2):
             with open(f, "w") as fp:
-                fp.write("ALGORITHME Tab\nDEBUT\nFIN\nTableau de déclaration des objets globaux\nObjet Type\n")
+                fp.write("ALGORITHME Tab\nDEBUT\nFIN\nTableau de déclaration des objets\nObjet Type\n")
 
         tabs = [
             {"file_path": f1, "tab_order": 0, "is_active": False},
@@ -114,11 +114,11 @@ class TestMainWindowDatabaseIntegration(unittest.TestCase):
         # Create two sample algorithm files
         self.sample1 = os.path.join(self.temp_dir.name, "algo_one.algo")
         with open(self.sample1, "w", encoding="utf-8") as f:
-            f.write("ALGORITHME AlgoOne\nDEBUT\n  Ecrire_nl(\"Un\")\nFIN\nTableau de déclaration des objets globaux\nObjet Type\n")
+            f.write("ALGORITHME AlgoOne\nDEBUT\n  Ecrire_nl(\"Un\")\nFIN\nTableau de déclaration des objets\nObjet Type\n")
 
         self.sample2 = os.path.join(self.temp_dir.name, "algo_two.algo")
         with open(self.sample2, "w", encoding="utf-8") as f:
-            f.write("ALGORITHME AlgoTwo\nDEBUT\n  Ecrire_nl(\"Deux\")\nFIN\nTableau de déclaration des objets globaux\nObjet Type\n")
+            f.write("ALGORITHME AlgoTwo\nDEBUT\n  Ecrire_nl(\"Deux\")\nFIN\nTableau de déclaration des objets\nObjet Type\n")
 
     def tearDown(self):
         QMessageBox.question = self._orig_msgbox

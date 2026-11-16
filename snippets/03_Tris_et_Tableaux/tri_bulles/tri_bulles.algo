@@ -36,7 +36,7 @@ DEBUT
   Ecrire_nl("")
 FIN
 
-Tableau de déclaration des objets globaux
+Tableau de déclaration des objets
 Objet           Type / Nature
 T               Tableau de 20 Entier
 n, i, aux       Entier
