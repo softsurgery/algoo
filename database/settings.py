@@ -143,3 +143,30 @@ class SettingsMixin:
         """Persists custom syntax highlighting colors."""
         key = "syntax_colors_dark" if is_dark else "syntax_colors_light"
         self.set_setting(key, json.dumps(colors))
+
+    def get_ui_visibility(self) -> Dict[str, bool]:
+        """Returns visibility flags for main UI panels (symbols_bar, console, side_panel)."""
+        defaults = {
+            "symbols_bar": True,
+            "console": True,
+            "side_panel": True,
+        }
+        raw = self.get_setting("ui_visibility", None)
+        if raw:
+            try:
+                loaded = json.loads(raw)
+                if isinstance(loaded, dict):
+                    for k in defaults:
+                        if k in loaded:
+                            defaults[k] = bool(loaded[k])
+            except Exception:
+                pass
+        return defaults
+
+    def set_ui_visibility(self, visibility: Dict[str, bool]) -> None:
+        """Persists visibility flags for main UI panels."""
+        current = self.get_ui_visibility()
+        for k in current:
+            if k in visibility:
+                current[k] = bool(visibility[k])
+        self.set_setting("ui_visibility", json.dumps(current))

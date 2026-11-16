@@ -7,9 +7,12 @@ LT, LTE, GT, GTE, NEQ, MOD, DIV, IN, ASSIGN, control structures, and declaration
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QPushButton, QLabel
 from PyQt5.QtCore import pyqtSignal
 
+from ui.components import AppCloseButton
+
 
 class SymbolsBar(QWidget):
     insert_requested = pyqtSignal(str)
+    close_requested = pyqtSignal()
 
     def __init__(self, parent=None, is_dark=False):
         super().__init__(parent)
@@ -98,6 +101,15 @@ class SymbolsBar(QWidget):
             layout.addWidget(btn)
 
         layout.addStretch()
+
+        self.btn_close = AppCloseButton(
+            self,
+            tooltip="Masquer la barre de symboles",
+            is_dark=self.is_dark,
+            on_clicked=self.close_requested.emit,
+        )
+        layout.addWidget(self.btn_close)
+
         self.set_dark_mode(self.is_dark)
 
     def set_dark_mode(self, is_dark: bool):
@@ -114,3 +126,4 @@ class SymbolsBar(QWidget):
             self.lbl_snip.setStyleSheet("font-weight: bold; color: #64748b; font-size: 11px;")
             self.sep2.setStyleSheet("color: #cbd5e1; margin: 0 4px;")
             self.lbl_tables.setStyleSheet("font-weight: bold; color: #64748b; font-size: 11px;")
+        self.btn_close.set_dark_mode(is_dark)
