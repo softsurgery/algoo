@@ -20,6 +20,7 @@ from version import (
     GITHUB_RELEASES_URL,
     __version__,
     is_newer_version,
+    is_prerelease_version,
     select_platform_asset,
 )
 
@@ -49,6 +50,7 @@ def fetch_latest_release(
     return {
         "version": tag_name.lstrip("vV") or "0.0.0",
         "tag_name": tag_name,
+        "prerelease": bool(data.get("prerelease", False)) or is_prerelease_version(tag_name),
         "download_url": download_url,
         "release_url": release_url,
         "notes": notes,
@@ -70,7 +72,7 @@ class UpdateCheckWorker(QThread):
         try:
             info = fetch_latest_release(self._api_url)
             latest = info["version"]
-            if is_newer_version(latest, __version__):
+            if not info.get("prerelease", False) and is_newer_version(latest, __version__):
                 self.update_available.emit(latest, info["download_url"], info["notes"])
             else:
                 self.up_to_date.emit(__version__)

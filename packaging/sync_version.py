@@ -15,10 +15,17 @@ VERSION_LINE_RE = re.compile(r'^(__version__\s*=\s*)(["\'])([^"\']*)(["\'])', re
 
 
 def normalize_version(raw: str) -> str:
-    """Strips leading 'v'/'V' and whitespace from a tag or version string."""
-    cleaned = raw.strip().lstrip("vV")
+    """Strips leading 'test-'/'v'/'V' and whitespace from a tag or version string."""
+    cleaned = raw.strip()
+    is_test_prefix = False
+    if cleaned.lower().startswith("test-"):
+        is_test_prefix = True
+        cleaned = cleaned[5:]
+    cleaned = cleaned.lstrip("vV")
     if not cleaned or not re.match(r"^\d+(\.\d+)*([+-].*)?$", cleaned):
         raise ValueError(f"Invalid version string: {raw!r}")
+    if is_test_prefix and "-" not in cleaned:
+        cleaned = f"{cleaned}-test"
     return cleaned
 
 

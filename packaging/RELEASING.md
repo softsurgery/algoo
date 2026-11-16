@@ -59,6 +59,18 @@ The GitHub Actions workflow in `.github/workflows/release.yml` automatically run
 
 > You can also trigger a dry-run build manually from the GitHub **Actions → Release → Run workflow** button (`workflow_dispatch`).
 
+### Test-Mode Releases (No In-App Update Notification)
+To run the full build & release pipeline for a test build without notifying installed Algoo apps of an update, push a tag with a `test-` prefix or a `-test` (or any `-<suffix>`) pre-release suffix:
+```bash
+git tag v1.1.0-test
+git push origin v1.1.0-test
+# or:
+git tag test-v1.1.0
+git push origin test-v1.1.0
+```
+- The CI pipeline builds all installers and publishes the GitHub Release marked as **Pre-release** (`prerelease: true`).
+- GitHub's `/releases/latest` endpoint ignores pre-releases, and `ui/updater.py` / `version.py` also ignore pre-release/test tags, so installed applications will not prompt users to update.
+
 ---
 
 ## 3. Building Installers Locally

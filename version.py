@@ -14,15 +14,27 @@ GITHUB_RELEASES_API = f"https://api.github.com/repos/{GITHUB_REPO}/releases/late
 GITHUB_RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases/latest"
 
 
+def is_prerelease_version(v_str: str) -> bool:
+    """Returns True if `v_str` represents a test or pre-release tag (e.g. 'v1.2.3-test', 'test-v1.2.3')."""
+    cleaned = v_str.strip().lower()
+    return cleaned.startswith("test-") or "-" in cleaned
+
+
 def parse_version(v_str: str) -> Tuple[int, ...]:
     """Parses a semantic version string (e.g. 'v1.2.3') into a comparable tuple of ints."""
-    cleaned = v_str.strip().lstrip("vV")
-    parts = re.findall(r"\d+", cleaned)
+    cleaned = v_str.strip()
+    if cleaned.lower().startswith("test-"):
+        cleaned = cleaned[5:]
+    cleaned = cleaned.lstrip("vV")
+    core = cleaned.split("-", 1)[0].split("+", 1)[0]
+    parts = re.findall(r"\d+", core)
     return tuple(int(p) for p in parts) if parts else (0,)
 
 
 def is_newer_version(latest: str, current: str = __version__) -> bool:
-    """Returns True if `latest` is strictly greater than `current`."""
+    """Returns True if `latest` is a stable release strictly greater than `current`."""
+    if is_prerelease_version(latest):
+        return False
     return parse_version(latest) > parse_version(current)
 
 

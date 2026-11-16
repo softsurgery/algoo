@@ -16,7 +16,13 @@ from unittest.mock import patch
 
 from PyQt5.QtWidgets import QApplication
 
-from version import __version__, is_newer_version, parse_version, select_platform_asset
+from version import (
+    __version__,
+    is_newer_version,
+    is_prerelease_version,
+    parse_version,
+    select_platform_asset,
+)
 
 _SYNC_SPEC = importlib.util.spec_from_file_location(
     "sync_version",
@@ -27,7 +33,7 @@ _SYNC_SPEC.loader.exec_module(_SYNC_MOD)
 normalize_version = _SYNC_MOD.normalize_version
 sync_version_file = _SYNC_MOD.sync_version_file
 from ui.platform_utils import get_bundle_dir, get_resource_path, get_user_data_dir, is_frozen
-from ui.updater import fetch_latest_release
+from ui.updater import UpdateCheckWorker, fetch_latest_release
 from ui.dialogs.about_dialog.header import AboutHeaderWidget
 
 app = QApplication.instance() or QApplication([])
@@ -118,7 +124,10 @@ class TestReleaseAndPlatform(unittest.TestCase):
             def __exit__(self, *args):
                 self.close()
 
-        with patch("urllib.request.urlopen", return_value=_MockResp(json.dumps(payload).encode("utf-8"))):
+        with patch(
+            "urllib.request.urlopen",
+            side_effect=lambda *a, **kw: _MockResp(json.dumps(payload).encode("utf-8")),
+        ):
             info = fetch_latest_release("https://api.github.com/repos/softsurgery/algoo/releases/latest")
             self.assertEqual(info["version"], "2.0.0")
             self.assertEqual(info["notes"], "Release notes")
@@ -132,6 +141,9 @@ class TestReleaseAndPlatform(unittest.TestCase):
     def test_sync_version_from_tag(self):
         self.assertEqual(normalize_version("v1.2.3"), "1.2.3")
         self.assertEqual(normalize_version("V2.0.1"), "2.0.1")
+        self.assertEqual(normalize_version("v1.2.3-test"), "1.2.3-test")
+        self.assertEqual(normalize_version("test-v1.2.3"), "1.2.3-test")
+        self.assertEqual(normalize_version("test-1.2.3"), "1.2.3-test")
         with self.assertRaises(ValueError):
             normalize_version("not-a-version")
 
@@ -142,6 +154,50 @@ class TestReleaseAndPlatform(unittest.TestCase):
             self.assertEqual(synced, "1.4.2")
             self.assertIn('__version__ = "1.4.2"', vf.read_text(encoding="utf-8"))
             self.assertFalse(is_newer_version("v1.4.2", synced))
+
+    def test_test_mode_tags_do_not_notify_updates(self):
+        self.assertTrue(is_prerelease_version("v2.0.0-test"))
+        self.assertTrue(is_prerelease_version("test-v2.0.0"))
+        self.assertFalse(is_prerelease_version("v2.0.0"))
+
+        self.assertFalse(is_newer_version("v2.0.0-test", "1.0.0"))
+        self.assertFalse(is_newer_version("test-v2.0.0", "1.0.0"))
+        self.assertFalse(is_newer_version("2.0.0-test.1", "1.0.0"))
+
+        class _MockResp(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                self.close()
+
+        payload = {
+            "tag_name": "v9.9.9-test",
+            "prerelease": True,
+            "html_url": "https://github.com/softsurgery/algoo/releases/tag/v9.9.9-test",
+            "body": "Test build",
+            "assets": [],
+        }
+
+        with patch(
+            "urllib.request.urlopen",
+            side_effect=lambda *a, **kw: _MockResp(json.dumps(payload).encode("utf-8")),
+        ):
+            info = fetch_latest_release("https://api.github.com/repos/softsurgery/algoo/releases/latest")
+            self.assertTrue(info["prerelease"])
+
+            worker = UpdateCheckWorker()
+            updates = []
+            up_to_date = []
+            failed = []
+            worker.update_available.connect(lambda *a: updates.append(a))
+            worker.up_to_date.connect(lambda v: up_to_date.append(v))
+            worker.check_failed.connect(lambda e: failed.append(e))
+            worker.run()
+            app.processEvents()
+            self.assertEqual(failed, [])
+            self.assertEqual(updates, [])
+            self.assertEqual(up_to_date, [__version__])
 
 
 if __name__ == "__main__":
