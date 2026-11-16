@@ -27,6 +27,8 @@ class SectionExtractor:
             'has_main_fin': False,
             'has_tdog': False,
             'has_tdog_under_main': False,
+            'main_objects_table_kind': None,
+            'main_objects_table_line': None,
             'has_tdnt': False,
             'tdnt_count': 0,
             'tdnt_start_lines': [],
@@ -54,7 +56,7 @@ class SectionExtractor:
                 continue
 
             # Strip comments
-            if stripped.startswith(("//", "#", "/*")):
+            if stripped.startswith("#"):
                 i += 1
                 continue
 
@@ -88,12 +90,16 @@ class SectionExtractor:
                 i += 1
                 continue
 
-            # Check for TDOG / TDO / Tableau de déclaration des objets globaux
-            is_tdog = bool(
-                re.match(r'^(?:t\.?d\.?o\.?g|t\.?d\.?o)\b', stripped, re.IGNORECASE) or
-                re.match(r'^(?:tableau\s+de\s+)?(?:déclaration|declaration)\s+des\s+objets?(?:\s+globaux)?\b', stripped, re.IGNORECASE)
+            # Check for TDOG (Tableau de déclaration des objets globaux) vs TDO (Tableau de déclaration des objets)
+            is_tdog_explicit = bool(
+                re.match(r'^t\.?d\.?o\.?g(?:-|\s|:|$)', stripped, re.IGNORECASE) or
+                re.match(r'^(?:tableau\s+de\s+)?(?:déclaration|declaration)\s+des\s+objets?\s+globaux\b', stripped, re.IGNORECASE)
             )
-            if is_tdog:
+            is_tdo_explicit = (not is_tdog_explicit) and bool(
+                re.match(r'^t\.?d\.?o(?:-|\s|:|$)', stripped, re.IGNORECASE) or
+                re.match(r'^(?:tableau\s+de\s+)?(?:déclaration|declaration)\s+des\s+objets?\b', stripped, re.IGNORECASE)
+            )
+            if is_tdog_explicit or is_tdo_explicit:
                 if current_subprog is not None:
                     prev_name = current_subprog.get('name', 'Sous-programme')
                     prev_line = current_subprog.get('start_line', 1)
@@ -106,6 +112,8 @@ class SectionExtractor:
                 in_main = False
                 current_subprog = None
                 sections['has_tdog'] = True
+                sections['main_objects_table_kind'] = 'tdog' if is_tdog_explicit else 'tdo'
+                sections['main_objects_table_line'] = line_no
                 if main_has_fin:
                     has_tdog_under_main = True
                 sections['has_tdog_under_main'] = has_tdog_under_main

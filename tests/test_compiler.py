@@ -20,7 +20,7 @@ class TestAlgoTranspiler(unittest.TestCase):
           Fin Pour
           Ecrire_nl("Somme = ", s)
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         Objet  Type / Nature
         s, i   Entier
         """
@@ -37,7 +37,7 @@ class TestAlgoTranspiler(unittest.TestCase):
             x <- x * 2
           Jusqu'à x >= 16
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         Objet  Type / Nature
         x      Entier
         """
@@ -57,9 +57,80 @@ class TestAlgoTranspiler(unittest.TestCase):
             Sinon j <- 0
           Fin Selon
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         Objet  Type / Nature
         mois, j Entier
+        """
+        py = self.transpiler.compile(algo)
+        ns = {'__name__': '__main__'}
+        exec(py, ns)
+
+    def test_selon_multiline_and_nested_si(self):
+        algo = """
+        ALGORITHME Exercice
+        DEBUT
+          ecrire("Mois=")
+          lire(m)
+          Selon m
+            1,3,5,7,8,10,12: j <- 31
+            4,6,9,11: j <- 30
+            2:
+              ecrire("Année=")
+              lire(a)
+              Si (a MOD 4 == 0) Alors
+                j <- 29
+              Sinon
+                j <- 28
+              Finsi
+            Sinon
+              j <- -1
+              ecrire("Mois Invalide : ", m)
+          Fin Selon
+        FIN
+        Tableau de déclaration des objets
+        Objet  Type / Nature
+        m, j, a : Entier
+        """
+        py = self.transpiler.compile(algo)
+        self.assertIn("case 2:", py)
+        self.assertIn("if (a % 4 == 0):", py)
+        self.assertIn("case _:", py)
+        self.assertIn('print("Mois Invalide : ", m, end=\'\')', py)
+
+        import builtins
+        from unittest.mock import patch
+        with patch.object(builtins, 'input', side_effect=['2', '2024']), patch('builtins.print'):
+            ns = {'__name__': '__main__'}
+            exec(py, ns)
+        with patch.object(builtins, 'input', side_effect=['13']), patch('builtins.print') as mock_print:
+            ns = {'__name__': '__main__'}
+            exec(py, ns)
+            mock_print.assert_any_call("Mois Invalide : ", 13, end='')
+
+    def test_selon_nested_in_si_and_selon(self):
+        algo = """
+        ALGORITHME TestNestedSelon
+        DEBUT
+          x <- 1
+          y <- 2
+          Si x > 0 Alors
+            Selon y
+              1 : res <- 10
+              2 :
+                Selon x
+                  1 : res <- 20
+                  Sinon res <- 0
+                Fin Selon
+              Sinon
+                res <- -1
+            Fin Selon
+          Sinon
+            res <- -99
+          Finsi
+        FIN
+        Tableau de déclaration des objets
+        Objet  Type / Nature
+        x, y, res : Entier
         """
         py = self.transpiler.compile(algo)
         ns = {'__name__': '__main__'}
@@ -79,7 +150,7 @@ class TestAlgoTranspiler(unittest.TestCase):
           num <- Estnum("1234")
           val <- Valeur("42")
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         Objet  Type / Nature
         a, l, num, val : Entier
         b, c : Réel
@@ -97,7 +168,7 @@ class TestAlgoTranspiler(unittest.TestCase):
           T[1] <- 200
           T[2] <- T[0] + T[1]
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         Objet  Type / Nature
         T      Tableau de 10 Entier
         """
@@ -208,34 +279,65 @@ class TestAlgoTranspiler(unittest.TestCase):
             self.transpiler.compile("ALGORITHME T\nDEBUT\nx <- 1\nTableau de déclaration des objets globaux\nx : Entier")
         self.assertIn("FIN", str(cm.exception))
 
+    def test_tantque_parenthesized_conditions(self):
+        """Verifies tantque( and tantque ( with spaces in conditions compile and execute."""
+        algo = """
+        ALGORITHME TestTantQueParens
+        DEBUT
+          x <- 0
+          tantque( x < 3 ) faire
+            x <- x + 1
+          Fin Tant que
+          tantque ( x < 5 ) faire
+            x <- x + 1
+          Fin Tant que
+          tantque(x < 6)faire
+            x <- x + 1
+          Fin Tant que
+          Ecrire(x)
+        FIN
+        Tableau de déclaration des objets
+        x : Entier
+        """
+        py = self.transpiler.compile(algo)
+        self.assertIn("while ( x < 3 ):", py)
+        self.assertIn("while ( x < 5 ):", py)
+        self.assertIn("while (x < 6):", py)
+        import io, contextlib
+        buf = io.StringIO()
+        ns = {'__name__': '__main__'}
+        with contextlib.redirect_stdout(buf):
+            exec(py, ns)
+        self.assertEqual(buf.getvalue().strip(), "6")
+
         # Missing Fin Enregistrement
         with self.assertRaises(CompileError) as cm:
-            self.transpiler.compile("ALGORITHME T\nDEBUT\nFIN\nTableau de déclaration des objets globaux\n/\nDéclaration des types\nRec = Enregistrement\na: Entier")
+            self.transpiler.compile("ALGORITHME T\nDEBUT\nFIN\nTableau de déclaration des objets\n/\nDéclaration des types\nRec = Enregistrement\na: Entier")
         self.assertIn("Fin Enregistrement", str(cm.exception))
 
     def test_mandatory_end_enforcement(self):
         # Missing FIN without DEBUT
         with self.assertRaises(MissingEndError):
-            self.transpiler.compile("ALGORITHME MonAlgo\nx <- 1\nTableau de déclaration des objets globaux\nx : Entier")
+            self.transpiler.compile("ALGORITHME MonAlgo\nx <- 1\nTableau de déclaration des objets\nx : Entier")
 
         # Missing FIN with DEBUT
         with self.assertRaises(MissingEndError):
-            self.transpiler.compile("ALGORITHME MonAlgo\nDEBUT\nx <- 1\nTableau de déclaration des objets globaux\nx : Entier")
+            self.transpiler.compile("ALGORITHME MonAlgo\nDEBUT\nx <- 1\nTableau de déclaration des objets\nx : Entier")
 
         # English END is accepted
-        py = self.transpiler.compile("ALGORITHME MonAlgo\nDEBUT\nx <- 1\nEND\nTableau de déclaration des objets globaux\nx : Entier")
+        py = self.transpiler.compile("ALGORITHME MonAlgo\nDEBUT\nx <- 1\nEND\nTableau de déclaration des objets\nx : Entier")
         self.assertIn("x = 1", py)
 
     def test_mandatory_types_enforcement(self):
         # Undeclared variable in main
         with self.assertRaises(MissingTypeError) as cm:
-            self.transpiler.compile("ALGORITHME MonAlgo\nDEBUT\nx <- 1\nFIN\nTableau de déclaration des objets globaux\n/")
+            self.transpiler.compile("ALGORITHME MonAlgo\nDEBUT\nx <- 1\nFIN\nTableau de déclaration des objets\n/")
         self.assertIn("non déclaré", str(cm.exception))
 
-        # Missing TDOG under main algorithm
+        # Missing TDO under main algorithm (no subprograms)
         with self.assertRaises(MissingTypeError) as cm:
             self.transpiler.compile("ALGORITHME MonAlgo\nDEBUT\nx <- 1\nFIN")
-        self.assertIn("TDOG", str(cm.exception))
+        self.assertIn("TDO", str(cm.exception))
 
         # Missing TDOL after subprogram
         algo_no_tdol = """
@@ -318,7 +420,7 @@ class TestAlgoTranspiler(unittest.TestCase):
         DEBUT
           x <- 1
         FIN
-        Tableau de déclaration des objets globaux
+        Tableau de déclaration des objets
         Objet Type
         x
         """

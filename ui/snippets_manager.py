@@ -192,8 +192,10 @@ def _read_file_safe(path: str) -> str:
 
 def get_default_snippets_dirs() -> List[str]:
     """Returns the ordered list of snippet directories to scan."""
+    from ui.platform_utils import get_bundle_dir
+
     dirs = []
-    base_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    base_root = get_bundle_dir()
     
     # 1. Primary snippets directory
     p_snippets = os.path.join(base_root, "snippets")
@@ -528,7 +530,7 @@ def create_snippet_bundle(
     if not algo_code.strip():
         algo_code = f"""ALGORITHME {safe_name.title()}
 DEBUT
-  // Écrivez votre algorithme ici
+  # Écrivez votre algorithme ici
   Ecrire("Bonjour depuis {safe_name.title()} !")
 FIN
 

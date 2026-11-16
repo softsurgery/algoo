@@ -137,11 +137,10 @@ class TestSubprogramsVariablesAndTDNT(unittest.TestCase):
 
     def test_tdnt_view_widget(self):
         view = TDNTView(is_dark=False)
-        self.assertEqual(view.table.columnCount(), 4)
+        self.assertEqual(view.table.columnCount(), 3)
         self.assertEqual(view.table.horizontalHeaderItem(0).text(), "Nouveau Type")
         self.assertEqual(view.table.horizontalHeaderItem(1).text(), "Nature")
         self.assertEqual(view.table.horizontalHeaderItem(2).text(), "Définition / Structure")
-        self.assertEqual(view.table.horizontalHeaderItem(3).text(), "Équivalent Python")
 
         custom_types = {
             'Etud': {'kind': 'enregistrement', 'fields': {'nom': 'chaine', 'note': 'reel'}},
@@ -249,6 +248,24 @@ class TestSubprogramsVariablesAndTDNT(unittest.TestCase):
         self.assertIn("Tableau T.D.N.T.", actions)
 
         win.close()
+
+    def test_tdo_extracted_instead_of_tdog_when_no_subprogram(self):
+        code = """
+        ALGORITHME SansSousProgramme
+        DEBUT
+          x <- 5
+        FIN
+        Tableau de déclaration des objets
+        x : Entier
+        """
+        self.transpiler.compile(code)
+        tables = self.transpiler.get_all_tdo_tables()
+        self.assertEqual(len(tables), 1)
+        self.assertEqual(tables[0]['id'], 'tdo')
+        self.assertEqual(tables[0]['kind'], 'tdo')
+        self.assertEqual(tables[0]['title'], 'Tableau de Déclaration des Objets (T.D.O.)')
+        self.assertEqual(tables[0]['short_name'], 'T.D.O. (Objets)')
+        self.assertEqual(tables[0]['objects'][0]['name'], 'x')
 
 
 if __name__ == '__main__':

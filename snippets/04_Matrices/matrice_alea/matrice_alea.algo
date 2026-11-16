@@ -12,7 +12,7 @@ DEBUT
     Ecrire_nl("")
   Fin Pour
   
-  // Calcul de la somme des éléments
+  # Calcul de la somme des éléments
   total <- 0
   Pour i de 0 à lignes - 1 Faire
     Pour j de 0 à colonnes - 1 Faire
@@ -23,7 +23,7 @@ DEBUT
   Ecrire_nl("Somme totale de la matrice = ", total)
 FIN
 
-Tableau de déclaration des objets globaux
+Tableau de déclaration des objets
 Objet                           Type / Nature
 M                               Tableau de 3 lignes * 3 colonnes Entier
 i, j, lignes, colonnes, total   Entier

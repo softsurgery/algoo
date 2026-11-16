@@ -1,9 +1,11 @@
 ALGORITHME TriABulles
 DEBUT
-  Ecrire("Donner la taille du tableau (max 20) : ")
-  Lire(n)
+  Répéter
+    Ecrire("Donner la taille du tableau (1 à 20) : ")
+    Lire(n)
+  Jusqu'à (n >= 1) Et (n <= 20)
   
-  // Remplissage avec des nombres aléatoires
+  # Remplissage avec des nombres aléatoires
   Pour i de 0 à n - 1 Faire
     T[i] <- Aléa(10, 99)
   Fin Pour
@@ -14,7 +16,7 @@ DEBUT
   Fin Pour
   Ecrire_nl("")
   
-  // Algorithme du tri à bulles
+  # Algorithme du tri à bulles
   Répéter
     permute <- Faux
     Pour i de 0 à n - 2 Faire
@@ -34,7 +36,7 @@ DEBUT
   Ecrire_nl("")
 FIN
 
-Tableau de déclaration des objets globaux
+Tableau de déclaration des objets
 Objet           Type / Nature
 T               Tableau de 20 Entier
 n, i, aux       Entier

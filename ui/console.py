@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QColor, QTextCursor, QFont
 from PyQt5.QtCore import Qt, QProcess, pyqtSignal
+from ui.platform_utils import get_bundle_dir, is_frozen
 
 
 class ConsoleOutputEdit(QTextEdit):
@@ -231,8 +232,10 @@ class AlgoConsole(QWidget):
         if self.is_running():
             self.stop_execution()
 
-        # Save to temporary file in workspace to allow imports of compiler.runtime
-        workspace_dir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+        self.clear_console()
+
+        # Save to temporary file in OS temp directory (works in read-only system installs)
+        workspace_dir = get_bundle_dir()
 
         # Determine the directory of the executing algorithm
         if algo_file_path:
@@ -244,7 +247,7 @@ class AlgoConsole(QWidget):
         algo_header = f"import os, sys\nos.environ['ALGO_DIR'] = {algo_dir!r}\nsys._algo_dir = {algo_dir!r}\n"
         full_code = algo_header + py_code
 
-        temp_fd, temp_path = tempfile.mkstemp(suffix=".py", prefix="_algo_exec_", dir=workspace_dir)
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".py", prefix="_algo_exec_", dir=tempfile.gettempdir())
         with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
             f.write(full_code)
 
@@ -253,20 +256,22 @@ class AlgoConsole(QWidget):
         self.process = QProcess(self)
         self.process.setWorkingDirectory(algo_dir)
 
-        # Setup environment
+        # Setup environment using platform-native os.pathsep
         env = self.process.processEnvironment()
         python_path = os.environ.get("PYTHONPATH", "")
-        if workspace_dir not in python_path:
-            python_path = f"{workspace_dir}:{python_path}" if python_path else workspace_dir
-        if algo_dir not in python_path:
-            python_path = f"{algo_dir}:{python_path}"
-        env.insert("PYTHONPATH", python_path)
+        parts = [p for p in python_path.split(os.pathsep) if p] if python_path else []
+        if workspace_dir not in parts:
+            parts.insert(0, workspace_dir)
+        if algo_dir not in parts:
+            parts.insert(0, algo_dir)
+        env.insert("PYTHONPATH", os.pathsep.join(parts))
         env.insert("PYTHONUNBUFFERED", "1")
         env.insert("ALGO_DIR", algo_dir)
         self.process.setProcessEnvironment(env)
 
         self.process.readyReadStandardOutput.connect(self._on_stdout_ready)
         self.process.readyReadStandardError.connect(self._on_stderr_ready)
+        self.process.errorOccurred.connect(self._on_process_error)
         self.process.finished.connect(self._on_process_finished)
 
         start_color = "#10b981" if not self.is_dark else "#a6e3a1"
@@ -276,8 +281,11 @@ class AlgoConsole(QWidget):
         self.btn_stop.setEnabled(True)
         self.execution_started.emit()
 
-        # Start python process
-        self.process.start(sys.executable, ["-u", temp_path])
+        # Start python process (use --run-script when running from frozen PyInstaller binary)
+        if is_frozen():
+            self.process.start(sys.executable, ["--run-script", temp_path])
+        else:
+            self.process.start(sys.executable, ["-u", temp_path])
 
     def _on_stdout_ready(self):
         if not self.process:
@@ -305,6 +313,45 @@ class AlgoConsole(QWidget):
         self.output_text.insertHtml(f"<span style='color: {err_color}; font-weight: bold;'>{escaped}</span>")
         self.output_text.moveCursor(QTextCursor.End)
 
+    def log_error(self, message: str, traceback_text: str = None):
+        """Logs an error message (and optional traceback) to the console output."""
+        err_color = "#dc2626" if not self.is_dark else "#f38ba8"
+        escaped_msg = (
+            str(message)
+            .replace('&', '&amp;')
+            .replace('<', '&lt;')
+            .replace('>', '&gt;')
+            .replace('\n', '<br>')
+        )
+        html = f"<span style='color: {err_color}; font-weight: bold;'>{escaped_msg}</span>"
+        if traceback_text:
+            escaped_tb = (
+                traceback_text.rstrip()
+                .replace('&', '&amp;')
+                .replace('<', '&lt;')
+                .replace('>', '&gt;')
+                .replace('\n', '<br>')
+            )
+            html += f"<br><span style='color: {err_color};'>{escaped_tb}</span>"
+        self.output_text.append(html)
+        self.output_text.moveCursor(QTextCursor.End)
+
+    def _on_process_error(self, error):
+        if error == QProcess.FailedToStart:
+            self.log_error("Erreur d'exécution : impossible de démarrer le processus Python.")
+            self.status_badge.setText(" ● Erreur ")
+            self.status_badge.setStyleSheet("color: #dc2626; font-weight: bold;")
+            self.btn_stop.setEnabled(False)
+            self._cleanup_temp_script()
+
+    def _cleanup_temp_script(self):
+        if self.temp_script_path and os.path.exists(self.temp_script_path):
+            try:
+                os.remove(self.temp_script_path)
+            except OSError:
+                pass
+            self.temp_script_path = None
+
     def _on_process_finished(self, exit_code, exit_status):
         self.status_badge.setText(" ● Prêt ")
         self.status_badge.setStyleSheet("color: #2b8a3e; font-weight: bold;")
@@ -314,13 +361,7 @@ class AlgoConsole(QWidget):
         self.output_text.append(f"<br><span style='color: {info_color}; font-style: italic;'>=== Sortie du programme (code {exit_code}) ===</span><br>")
         self.output_text.moveCursor(QTextCursor.End)
 
-        # Clean temp file
-        if self.temp_script_path and os.path.exists(self.temp_script_path):
-            try:
-                os.remove(self.temp_script_path)
-            except OSError:
-                pass
-            self.temp_script_path = None
+        self._cleanup_temp_script()
 
         self.execution_finished.emit(exit_code)
 

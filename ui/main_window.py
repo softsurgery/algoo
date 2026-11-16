@@ -6,13 +6,21 @@ Built with PyQt5 and modern design standards.
 
 import os
 import sys
+
+# Ensure Linux desktop sessions use the native OS window manager (via xcb)
+# for all decorations, title bars, borders, resizing, moving, minimizing,
+# maximizing, and positioning rather than Qt5's client-side Wayland decoration.
+if sys.platform.startswith("linux") and os.environ.get("DISPLAY"):
+    if os.environ.get("QT_QPA_PLATFORM", "") in ("", "wayland", "wayland-egl"):
+        os.environ["QT_QPA_PLATFORM"] = "xcb"
+
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
     QTabWidget, QToolBar, QAction, QFileDialog, QMessageBox,
     QStatusBar, QLabel, QMenu, QToolButton, QApplication, QDialog
 )
 from PyQt5.QtGui import QIcon, QFont, QKeySequence, QDesktopServices, QPixmap
-from PyQt5.QtCore import Qt, QFileInfo, QUrl, QSettings
+from PyQt5.QtCore import Qt, QFileInfo, QUrl, QSettings, QTimer
 
 from compiler.transpiler import AlgoTranspiler, CompileError
 from ui.editor import AlgoCodeEditor
@@ -25,11 +33,13 @@ from ui.symbols_bar import SymbolsBar
 from ui.icons import create_icon, get_app_icon
 from ui.styles import (
     LIGHT_THEME, DARK_THEME,
-    detect_system_dark_mode, apply_os_window_theme
+    detect_system_dark_mode, apply_os_window_theme,
+    get_system_theme_watcher
 )
-from ui.insert_code_dialog import InsertCodeDialog
+from ui.dialogs import InsertCodeDialog, AboutDialog, PreferencesDialog
 from ui.snippets_view import SnippetsWidget
-from ui.about_dialog import AboutDialog
+from ui.updater import check_for_updates
+from ui.error_handler import register_console, report_error
 from database import get_database, DatabaseManager
 from typing import Optional
 
@@ -37,6 +47,7 @@ from typing import Optional
 class MainWindow(QMainWindow):
     def __init__(self, db: Optional[DatabaseManager] = None):
         super().__init__()
+        self.setWindowFlags(Qt.Window)
         self.setWindowTitle("Algoo - IDE Algorithmique")
         # Do not display icon in window header at top left
         empty_icon_pixmap = QPixmap(1, 1)
@@ -48,15 +59,27 @@ class MainWindow(QMainWindow):
         self.db = db or get_database()
         self.settings = QSettings("softsurgery", "Algoo")
 
-        saved_dark = self.db.is_dark_mode()
-        if saved_dark is not None:
-            self.is_dark_mode = saved_dark
-        elif self.settings.contains("dark_mode"):
-            self.is_dark_mode = self.settings.value("dark_mode", type=bool)
-            self.db.set_dark_mode(self.is_dark_mode)
-        else:
+        theme_mode = self.db.get_theme_mode(None) if hasattr(self.db, "get_theme_mode") else None
+        if theme_mode == "system":
             self.is_dark_mode = detect_system_dark_mode()
-            self.db.set_dark_mode(self.is_dark_mode)
+        elif theme_mode == "dark":
+            self.is_dark_mode = True
+        elif theme_mode == "light":
+            self.is_dark_mode = False
+        else:
+            saved_dark = self.db.is_dark_mode()
+            if saved_dark is not None:
+                self.is_dark_mode = saved_dark
+            elif self.settings.contains("dark_mode"):
+                self.is_dark_mode = self.settings.value("dark_mode", type=bool)
+            else:
+                self.is_dark_mode = detect_system_dark_mode()
+            if hasattr(self.db, "set_dark_mode"):
+                self.db.set_dark_mode(self.is_dark_mode)
+
+        # Connect live system theme watcher for immediate automatic detection
+        self.theme_watcher = get_system_theme_watcher()
+        self.theme_watcher.theme_changed.connect(self._on_system_theme_changed)
 
         self.transpiler = AlgoTranspiler()
 
@@ -68,6 +91,10 @@ class MainWindow(QMainWindow):
 
         # Restore latest opened files or open starter default example
         self._restore_opened_files()
+
+        # Silent background update check on startup
+        if "unittest" not in sys.modules:
+            QTimer.singleShot(3000, lambda: check_for_updates(self, silent=True))
 
     def _setup_ui(self):
         central_widget = QWidget(self)
@@ -101,6 +128,7 @@ class MainWindow(QMainWindow):
         # Interactive Console
         self.console = AlgoConsole(self, is_dark=self.is_dark_mode)
         self.console.error_line_clicked.connect(self._on_error_line_clicked)
+        register_console(self.console)
         self.v_splitter.addWidget(self.console)
 
         # Set vertical split proportions (65% editor, 35% console)
@@ -217,16 +245,10 @@ class MainWindow(QMainWindow):
         self.act_zoom_in.triggered.connect(self.zoom_in)
         self.toolbar.addAction(self.act_zoom_in)
 
-        # Spacer to push theme button to right
-        spacer = QWidget()
-        spacer.setSizePolicy(spacer.sizePolicy().Expanding, spacer.sizePolicy().Preferred)
-        self.toolbar.addWidget(spacer)
-
-        # Theme toggle button
+        # Theme action (accessible programmatically and via shortcuts, moved from toolbar to Preferences)
         self.act_theme = QAction(create_icon("theme"), "Thème", self)
         self.act_theme.setToolTip("Basculer entre le thème clair et le thème sombre")
         self.act_theme.triggered.connect(self.toggle_theme)
-        self.toolbar.addAction(self.act_theme)
 
     def _setup_menus(self):
         menubar = self.menuBar()
@@ -248,9 +270,12 @@ class MainWindow(QMainWindow):
         menu_file.addAction(act_save_as)
         menu_file.addSeparator()
 
-        # Exemples sub-menu
-        menu_ex = menu_file.addMenu("Exemples d'algorithmes")
-        self._populate_examples_menu(menu_ex)
+        act_insert_code = QAction("Insérer du code...", self)
+        act_insert_code.setIcon(create_icon("open"))
+        act_insert_code.setShortcut(QKeySequence("Ctrl+I"))
+        act_insert_code.setToolTip("Ouvrir la boîte de dialogue pour choisir et insérer un code (Ctrl+I)")
+        act_insert_code.triggered.connect(self.show_insert_code_dialog)
+        menu_file.addAction(act_insert_code)
         menu_file.addSeparator()
 
         act_exit = QAction("Quitter", self)
@@ -338,16 +363,12 @@ class MainWindow(QMainWindow):
         menu_view.addAction(self.act_fullscreen)
         menu_view.addSeparator()
 
-        menu_view.addAction(self.act_theme)
-
-        # Tools
-        menu_tools = menubar.addMenu("&Tools")
-        act_insert_code = QAction("Insert Code...", self)
-        act_insert_code.setIcon(create_icon("open"))
-        act_insert_code.setShortcut(QKeySequence("Ctrl+I"))
-        act_insert_code.setToolTip("Ouvrir la boîte de dialogue pour choisir et insérer un code (Ctrl+I)")
-        act_insert_code.triggered.connect(self.show_insert_code_dialog)
-        menu_tools.addAction(act_insert_code)
+        self.act_preferences = QAction("Préférences...", self)
+        self.act_preferences.setShortcut(QKeySequence("Ctrl+,"))
+        self.act_preferences.setIcon(create_icon("settings", "#475569" if not self.is_dark_mode else "#cdd6f4"))
+        self.act_preferences.setToolTip("Ouvrir les préférences de l'application (Ctrl+,)")
+        self.act_preferences.triggered.connect(self.show_preferences_dialog)
+        menu_view.addAction(self.act_preferences)
 
         # Aide
         menu_help = menubar.addMenu("&Aide")
@@ -355,6 +376,11 @@ class MainWindow(QMainWindow):
         act_github.setToolTip("Ouvrir la page GitHub du projet Algoo")
         act_github.triggered.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/softsurgery/algoo")))
         menu_help.addAction(act_github)
+
+        self.act_check_updates = QAction("Vérifier les mises à jour...", self)
+        self.act_check_updates.setToolTip("Vérifier si une nouvelle version d'Algoo est disponible")
+        self.act_check_updates.triggered.connect(lambda: check_for_updates(self, silent=False))
+        menu_help.addAction(self.act_check_updates)
         menu_help.addSeparator()
 
         act_about = QAction("À propos d'Algoo", self)
@@ -372,24 +398,6 @@ class MainWindow(QMainWindow):
         self.status_bar.addWidget(self.lbl_status, 1)
         self.status_bar.addPermanentWidget(self.lbl_cursor)
         self.status_bar.addPermanentWidget(self.lbl_backend)
-
-    def _populate_examples_menu(self, menu: QMenu):
-        menu.clear()
-        act_browse = QAction("Choisir dans la liste (Insert Code)...", self)
-        act_browse.setIcon(create_icon("open"))
-        act_browse.triggered.connect(self.show_insert_code_dialog)
-        menu.addAction(act_browse)
-        menu.addSeparator()
-
-        examples_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "examples")
-        if os.path.exists(examples_dir):
-            for fname in sorted(os.listdir(examples_dir)):
-                if fname.endswith(".algo"):
-                    label = fname.replace(".algo", "").replace("_", " ").title()
-                    filepath = os.path.join(examples_dir, fname)
-                    act = QAction(label, self)
-                    act.triggered.connect(lambda _, p=filepath: self.load_file(p))
-                    menu.addAction(act)
 
     def show_insert_code_dialog(self):
         """Displays the code selection and insertion dialog."""
@@ -485,6 +493,8 @@ class MainWindow(QMainWindow):
             self.python_view.reset_zoom()
             if hasattr(self, 'assistant_view'):
                 self.assistant_view.reset_zoom()
+            if hasattr(self, 'snippets_view'):
+                self.snippets_view.reset_zoom()
 
     def apply_theme(self, recreate_native: bool = False):
         if self.is_dark_mode:
@@ -494,12 +504,14 @@ class MainWindow(QMainWindow):
             theme_qss = LIGHT_THEME
             color_hex = "#2c3e50"
 
+        # Apply palette before and after stylesheet so all child widgets polish with the new palette
+        apply_os_window_theme(self, self.is_dark_mode)
+
         app = QApplication.instance()
         if app:
             app.setStyleSheet(theme_qss)
         self.setStyleSheet(theme_qss)
 
-        # Apply dark/light colors to OS window frame and title bar
         apply_os_window_theme(self, self.is_dark_mode)
 
         # Update icons
@@ -509,6 +521,8 @@ class MainWindow(QMainWindow):
         self.act_zoom_in.setIcon(create_icon("zoom_in", color_hex))
         self.act_zoom_out.setIcon(create_icon("zoom_out", color_hex))
         self.act_theme.setIcon(create_icon("theme", color_hex))
+        if hasattr(self, "act_preferences"):
+            self.act_preferences.setIcon(create_icon("settings", color_hex))
         if hasattr(self, "act_fullscreen"):
             self.act_fullscreen.setIcon(create_icon("fullscreen", color_hex))
 
@@ -530,34 +544,70 @@ class MainWindow(QMainWindow):
 
         # Propagate to all open editors
         if hasattr(self, "tab_widget"):
+            editor_settings = self.db.get_editor_settings() if hasattr(self, "db") and self.db else {}
+            syntax_colors = self.db.get_syntax_colors(self.is_dark_mode) if hasattr(self, "db") and self.db else {}
             for i in range(self.tab_widget.count()):
                 editor = self.tab_widget.widget(i)
                 if isinstance(editor, AlgoCodeEditor):
                     editor.set_dark_mode(self.is_dark_mode)
+                    editor.apply_settings(editor_settings, syntax_colors)
 
-        # On Wayland (e.g. GNOME Wayland), client-side decorations (Bradient/QtWayland)
-        # determine their colors upon window handle instantiation. Recreating the native
-        # window handle on runtime toggle immediately applies the new palette to the title bar.
-        if recreate_native and self.isVisible():
-            app = QApplication.instance()
-            if app and app.platformName().startswith("wayland"):
-                save_geom = self.saveGeometry()
-                state = self.windowState()
-                self.destroy()
-                self.create()
-                self.restoreGeometry(save_geom)
-                self.setWindowState(state)
-                self.show()
+        # Refresh window visual appearance immediately without destroying or reopening the native window
+        self.update()
+
+    def _on_system_theme_changed(self, is_dark: bool):
+        """Immediately applies theme when the operating system switches between dark/light mode."""
+        if hasattr(self, "db") and self.db is not None and getattr(self.db, "_conn", True) is None:
+            return
+
+        # The window manager strictly follows the OS
+        apply_os_window_theme(self, is_dark)
+
+        theme_mode = self.db.get_theme_mode("system") if hasattr(self, "db") and hasattr(self.db, "get_theme_mode") else "system"
+        if theme_mode == "system":
+            if self.is_dark_mode != is_dark:
+                self.is_dark_mode = is_dark
+                self.apply_theme(recreate_native=False)
+                mode_str = "sombre" if self.is_dark_mode else "clair"
+                if hasattr(self, "lbl_status") and self.lbl_status:
+                    self.lbl_status.setText(f"Thème système {mode_str} détecté et appliqué")
 
     def toggle_theme(self):
         self.is_dark_mode = not self.is_dark_mode
         if hasattr(self, "db") and self.db:
-            self.db.set_dark_mode(self.is_dark_mode)
+            if hasattr(self.db, "set_theme_mode"):
+                self.db.set_theme_mode("dark" if self.is_dark_mode else "light")
+            if hasattr(self.db, "set_dark_mode"):
+                self.db.set_dark_mode(self.is_dark_mode)
         if hasattr(self, "settings"):
             self.settings.setValue("dark_mode", self.is_dark_mode)
-        self.apply_theme(recreate_native=True)
+        self.apply_theme(recreate_native=False)
         mode_str = "sombre" if self.is_dark_mode else "clair"
         self.lbl_status.setText(f"Thème {mode_str} activé")
+
+    def show_preferences_dialog(self):
+        """Opens the Preferences Dialog (Theme mode, colors, font, editor settings)."""
+        from ui.dialogs import PreferencesDialog
+        dlg = PreferencesDialog(self, is_dark=self.is_dark_mode, db=self.db)
+        dlg.settings_applied.connect(self._apply_all_preferences)
+        if dlg.exec_() == QDialog.Accepted:
+            self._apply_all_preferences()
+
+    def _apply_all_preferences(self):
+        """Applies theme mode (system/light/dark) and editor preferences."""
+        theme_mode = self.db.get_theme_mode() if hasattr(self, "db") and hasattr(self.db, "get_theme_mode") else "system"
+        if theme_mode == "system":
+            effective_dark = detect_system_dark_mode()
+        elif theme_mode == "dark":
+            effective_dark = True
+        else:
+            effective_dark = False
+
+        self.is_dark_mode = effective_dark
+        if hasattr(self, "db") and self.db:
+            if hasattr(self.db, "set_dark_mode"):
+                self.db.set_dark_mode(self.is_dark_mode)
+        self.apply_theme(recreate_native=False)
 
     # -------------------------------------------------------------------------
     # Editor & Tabs Management
@@ -572,6 +622,10 @@ class MainWindow(QMainWindow):
         if isinstance(title, bool) or not title:
             title = "Nouveau Script"
         editor = AlgoCodeEditor(self, is_dark=self.is_dark_mode)
+        if hasattr(self, "db") and self.db:
+            editor_settings = self.db.get_editor_settings()
+            syntax_colors = self.db.get_syntax_colors(self.is_dark_mode)
+            editor.apply_settings(editor_settings, syntax_colors)
         
         default_content = content or (
             "ALGORITHME MonAlgorithme\n"
@@ -643,8 +697,17 @@ class MainWindow(QMainWindow):
             with open(path, "r", encoding="utf-8") as f:
                 content = f.read()
         except UnicodeDecodeError:
-            with open(path, "r", encoding="latin-1") as f:
-                content = f.read()
+            try:
+                with open(path, "r", encoding="latin-1") as f:
+                    content = f.read()
+            except Exception as e:
+                self.lbl_status.setText("Erreur d'ouverture")
+                report_error("Erreur d'ouverture", f"Impossible d'ouvrir {path} : {e}", parent=self)
+                return
+        except Exception as e:
+            self.lbl_status.setText("Erreur d'ouverture")
+            report_error("Erreur d'ouverture", f"Impossible d'ouvrir {path} : {e}", parent=self)
+            return
 
         filename = os.path.basename(path)
         editor = self.new_file(filename, content)
@@ -684,7 +747,8 @@ class MainWindow(QMainWindow):
                 self._populate_recent_files_menu()
             return True
         except Exception as e:
-            QMessageBox.critical(self, "Erreur d'enregistrement", str(e))
+            self.lbl_status.setText("Erreur d'enregistrement")
+            report_error("Erreur d'enregistrement", str(e), parent=self)
             return False
 
     def save_file_as(self) -> bool:
@@ -703,7 +767,7 @@ class MainWindow(QMainWindow):
 
     def _on_close_tab(self, index):
         editor = self.tab_widget.widget(index)
-        if editor.property("is_dirty") and QApplication.platformName() != "offscreen":
+        if editor.property("is_dirty") and QApplication.platformName() != "offscreen" and "unittest" not in sys.modules:
             fname = self.tab_widget.tabText(index).replace("*", "").strip()
             res = QMessageBox.question(
                 self, "Modifications non enregistrées",
@@ -887,7 +951,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         """Handles window closing: prompts for unsaved changes and saves session to DB."""
-        if self.isVisible() and QApplication.platformName() != "offscreen":
+        if self.isVisible() and QApplication.platformName() != "offscreen" and "unittest" not in sys.modules:
             for i in range(self.tab_widget.count()):
                 editor = self.tab_widget.widget(i)
                 if editor and editor.property("is_dirty"):
@@ -908,14 +972,18 @@ class MainWindow(QMainWindow):
                         return
 
         self._sync_tabs_to_db()
+        if hasattr(self, "theme_watcher") and self.theme_watcher is not None:
+            try:
+                self.theme_watcher.theme_changed.disconnect(self._on_system_theme_changed)
+            except (TypeError, RuntimeError):
+                pass
         event.accept()
         super().closeEvent(event)
 
     def _open_default_example(self):
-        example_path = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
-            "examples", "somme_diviseurs.algo"
-        )
+        from ui.platform_utils import get_resource_path
+
+        example_path = get_resource_path("examples", "somme_diviseurs.algo")
         if os.path.exists(example_path):
             self.load_file(example_path)
         else:
@@ -964,7 +1032,7 @@ class MainWindow(QMainWindow):
                 editor.set_error_line(line_no)
             self.assistant_view.show_error_advice(str(e), line_no=line_no)
             self.side_tabs.setCurrentWidget(self.assistant_view)
-            QMessageBox.warning(self, "Erreur de compilation", str(e))
+            report_error("Erreur de compilation", str(e), parent=self)
             return ""
 
     def run_algorithm(self):
@@ -974,6 +1042,7 @@ class MainWindow(QMainWindow):
             return
 
         editor.set_error_line(None)
+        self.console.clear_console()
         algo_code = editor.toPlainText()
         algo_file_path = editor.property("file_path")
 
@@ -993,7 +1062,7 @@ class MainWindow(QMainWindow):
                 editor.set_error_line(line_no)
             self.assistant_view.show_error_advice(str(e), line_no=line_no)
             self.side_tabs.setCurrentWidget(self.assistant_view)
-            self.console.output_text.append(f"<span style='color: #ef4444; font-weight: bold;'>Erreur de compilation : {e}</span>")
+            report_error("Erreur de compilation", str(e), parent=self)
 
     def stop_execution(self):
         self.console.stop_execution()

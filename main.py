@@ -6,11 +6,39 @@ Developed by softsurgery (https://github.com/softsurgery/algoo).
 
 import sys
 import os
+import runpy
 
 # Ensure the root directory is in sys.path
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
+
+from version import APP_NAME, ORG_NAME, __version__
+
+
+def _handle_cli_flags() -> None:
+    """Handles --version and --run-script before initializing Qt GUI."""
+    if len(sys.argv) >= 2 and sys.argv[1] == "--version":
+        print(f"{APP_NAME} {__version__}")
+        sys.exit(0)
+    if len(sys.argv) >= 3 and sys.argv[1] == "--run-script":
+        script_path = sys.argv[2]
+        sys.argv = [script_path] + sys.argv[3:]
+        script_dir = os.path.dirname(os.path.abspath(script_path))
+        if script_dir and script_dir not in sys.path:
+            sys.path.insert(0, script_dir)
+        runpy.run_path(script_path, run_name="__main__")
+        sys.exit(0)
+
+
+_handle_cli_flags()
+
+# Use the native OS window manager on Linux desktop sessions (via xcb)
+# for all decorations, title bars, borders, resizing, moving, minimizing,
+# maximizing, and positioning rather than Qt5's client-side Wayland decoration.
+if sys.platform.startswith("linux") and os.environ.get("DISPLAY"):
+    if os.environ.get("QT_QPA_PLATFORM", "") in ("", "wayland", "wayland-egl"):
+        os.environ["QT_QPA_PLATFORM"] = "xcb"
 
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import Qt, QSettings
@@ -19,9 +47,11 @@ from ui.icons import get_app_icon
 from ui.theme_utils import (
     detect_system_dark_mode,
     create_dark_palette,
-    create_light_palette
+    create_light_palette,
+    get_system_theme_watcher
 )
 from ui.main_window import MainWindow
+from ui.error_handler import install_exception_hooks
 from database import get_database
 
 def main():
@@ -30,24 +60,32 @@ def main():
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
 
     app = QApplication(sys.argv)
-    app.setApplicationName("Algoo")
-    app.setApplicationDisplayName("Algoo")
-    app.setOrganizationName("softsurgery")
+    install_exception_hooks()
+    app.setApplicationName(APP_NAME)
+    app.setApplicationDisplayName(APP_NAME)
+    app.setApplicationVersion(__version__)
+    app.setOrganizationName(ORG_NAME)
     app.setDesktopFileName("algoo.desktop")
     app.setWindowIcon(get_app_icon())
 
-    # Determine theme preference from SQLite database, with fallback to QSettings / system
+    # Initialize live system theme watcher
+    get_system_theme_watcher()
+
+    # Determine theme preference from SQLite database, with fallback to system
     db = get_database()
-    saved_dark_mode = db.is_dark_mode()
-    if saved_dark_mode is not None:
-        is_dark = saved_dark_mode
+    theme_mode = db.get_theme_mode(None)
+    if theme_mode is None:
+        db.set_theme_mode("system")
+        is_dark = detect_system_dark_mode()
+    elif theme_mode == "system":
+        is_dark = detect_system_dark_mode()
+    elif theme_mode == "dark":
+        is_dark = True
+    elif theme_mode == "light":
+        is_dark = False
     else:
-        settings = QSettings("softsurgery", "Algoo")
-        if settings.contains("dark_mode"):
-            is_dark = settings.value("dark_mode", type=bool)
-        else:
-            is_dark = detect_system_dark_mode()
-        db.set_dark_mode(is_dark)
+        saved_dark = db.is_dark_mode()
+        is_dark = saved_dark if saved_dark is not None else detect_system_dark_mode()
 
     app.setPalette(create_dark_palette() if is_dark else create_light_palette())
 

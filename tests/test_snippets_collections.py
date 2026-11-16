@@ -149,6 +149,13 @@ class TestSnippetsAndCollections(unittest.TestCase):
         headers = [widget.tree_widget.headerItem().text(i) for i in range(widget.tree_widget.columnCount())]
         self.assertNotIn("Joints", headers)
 
+        # Select a snippet with companion files (e.g. somme_diviseurs) to verify all 3 tabs
+        for col in widget._collections:
+            for snip in col.snippets:
+                if snip.companion_files:
+                    widget._on_snippet_selected(snip)
+                    break
+
         # Check tab count and tab names: strictly 3 tabs (Code, Documentation, Fichiers associés)
         self.assertEqual(widget.tabs.count(), 3)
         tab_names = [widget.tabs.tabText(i) for i in range(widget.tabs.count())]
@@ -214,7 +221,8 @@ class TestSnippetsAndCollections(unittest.TestCase):
         self.assertFalse(dlg.btn_insert.icon().isNull())
         self.assertFalse(dlg.btn_new_tab.icon().isNull())
         self.assertFalse(dlg.btn_cancel.icon().isNull())
-        self.assertFalse(dlg.btn_copy.icon().isNull())
+        self.assertFalse(hasattr(dlg, "btn_copy"))
+        self.assertFalse(hasattr(dlg, "btn_fullscreen"))
         self.assertEqual(dlg.tree_widget.columnCount(), 1)
         # Verify top-left app icon is removed (1x1 transparent icon)
         icon = dlg.windowIcon()
@@ -241,6 +249,57 @@ class TestSnippetsAndCollections(unittest.TestCase):
         win._on_snippet_side_new_tab(test_code, "Onglet Test")
         self.assertGreaterEqual(win.tab_widget.count(), 2)
         win.close()
+
+    def test_snippet_markdown_browser_zoom_scales_all_text(self):
+        from PyQt5.QtGui import QWheelEvent, QKeyEvent
+        from PyQt5.QtCore import Qt, QPoint, QPointF, QEvent
+
+        browser = SnippetMarkdownBrowser(is_dark=False)
+        browser.set_markdown_content(
+            "# Heading 1\n\nParagraph body text\n\n- List item\n\n### Heading 3\n\n```algo\nx <- 1\n```"
+        )
+
+        def get_block_sizes():
+            sizes = {}
+            blk = browser.document().begin()
+            while blk.isValid():
+                it = blk.begin()
+                if not it.atEnd():
+                    f = it.fragment().charFormat().font()
+                    size = f.pixelSize() if f.pixelSize() > 0 else f.pointSizeF()
+                    sizes[blk.text().strip()] = size
+                blk = blk.next()
+            return sizes
+
+        base = get_block_sizes()
+        for _ in range(3):
+            browser.zoom_in()
+        zoomed_in = get_block_sizes()
+
+        for key in ("Heading 1", "Paragraph body text", "List item", "Heading 3", "x <- 1"):
+            self.assertGreater(zoomed_in[key], base[key], f"{key} did not grow on zoom_in")
+
+        # Test Ctrl + Wheel zoom_out and zoom_in
+        wheel_up = QWheelEvent(
+            QPointF(10, 10), QPointF(10, 10), QPoint(0, 0), QPoint(0, 120),
+            Qt.NoButton, Qt.ControlModifier, Qt.NoScrollPhase, False
+        )
+        browser.wheelEvent(wheel_up)
+        self.assertEqual(browser.zoom_level, 4)
+
+        wheel_down = QWheelEvent(
+            QPointF(10, 10), QPointF(10, 10), QPoint(0, 0), QPoint(0, -120),
+            Qt.NoButton, Qt.ControlModifier, Qt.NoScrollPhase, False
+        )
+        browser.wheelEvent(wheel_down)
+        self.assertEqual(browser.zoom_level, 3)
+
+        # Test Ctrl + 0 resets zoom
+        key_reset = QKeyEvent(QEvent.KeyPress, Qt.Key_0, Qt.ControlModifier, "0")
+        browser.keyPressEvent(key_reset)
+        self.assertEqual(browser.zoom_level, 0)
+        self.assertEqual(get_block_sizes(), base)
+        browser.close()
 
 
 if __name__ == "__main__":

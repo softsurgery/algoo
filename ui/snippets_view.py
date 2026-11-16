@@ -11,196 +11,28 @@ import html
 from typing import Optional, List, Dict
 
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QTreeWidget, QTreeWidgetItem,
+    QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QTreeWidgetItem,
     QLabel, QPushButton, QLineEdit, QTabWidget, QScrollArea, QTableWidget,
     QTableWidgetItem, QHeaderView, QMenu, QAction, QFileDialog, QMessageBox,
-    QInputDialog, QFrame, QTextBrowser, QComboBox, QPlainTextEdit, QApplication,
+    QInputDialog, QFrame, QPlainTextEdit, QApplication,
     QStackedWidget
 )
 from PyQt5.QtGui import QFont, QIcon, QPixmap, QDesktopServices, QColor
 from PyQt5.QtCore import Qt, pyqtSignal, QUrl, QSize
 
+from ui.components import AppMarkdownReader, AppSelect, AppTreeView
+
 from ui.editor import AlgoCodeEditor
+from ui.error_handler import report_error
 from ui.icons import create_icon
 from ui.pdf_viewer import LightPdfViewer, PdfReaderWindow
 from ui.snippets_manager import (
     SnippetItem, CollectionNode, scan_snippets_tree, join_file_to_snippet,
     create_snippet_bundle, IMAGE_EXTENSIONS, MD_EXTENSIONS
 )
-from ui.assistant_view import highlight_algo_syntax, highlight_python_syntax
-
-try:
-    import markdown
-    HAS_MARKDOWN = True
-except ImportError:
-    HAS_MARKDOWN = False
 
 
-class SnippetMarkdownBrowser(QTextBrowser):
-    """High-contrast, themed markdown documentation browser for snippets."""
-
-    def __init__(self, parent=None, is_dark: bool = False):
-        super().__init__(parent)
-        self.is_dark = is_dark
-        self.zoom_level = 0
-        self._current_md = ""
-        self.setOpenExternalLinks(True)
-        self._apply_style()
-
-    def set_dark_mode(self, is_dark: bool):
-        self.is_dark = is_dark
-        self._apply_style()
-        if self._current_md:
-            self.set_markdown_content(self._current_md)
-
-    def zoom_in(self):
-        if self.zoom_level < 15:
-            self.zoom_level += 1
-            if self._current_md:
-                self.set_markdown_content(self._current_md)
-
-    def zoom_out(self):
-        if self.zoom_level > -4:
-            self.zoom_level -= 1
-            if self._current_md:
-                self.set_markdown_content(self._current_md)
-
-    def _apply_style(self):
-        bg = "#11111b" if self.is_dark else "#ffffff"
-        fg = "#cdd6f4" if self.is_dark else "#1e293b"
-        border = "#313244" if self.is_dark else "#e2e8f0"
-        self.setStyleSheet(
-            f"QTextBrowser {{ background-color: {bg}; color: {fg}; border: 1px solid {border}; border-radius: 6px; padding: 10px; }}"
-        )
-
-    def set_markdown_content(self, md_text: str):
-        self._current_md = md_text
-        if not md_text.strip():
-            self.setHtml("")
-            return
-
-        base_font_size = max(9, min(28, 13 + self.zoom_level))
-        pre_font_size = max(8, min(26, 12 + self.zoom_level))
-        h1_font_size = max(13, min(34, 17 + self.zoom_level))
-        h2_font_size = max(11, min(30, 15 + self.zoom_level))
-
-        if self.is_dark:
-            body_fg = "#cdd6f4"
-            bold_fg = "#ffffff"
-            h1_color = "#89b4fa"
-            h2_color = "#cba6f7"
-            pre_bg = "#181825"
-            pre_fg = "#cdd6f4"
-            pre_border = "#313244"
-            code_bg = "#313244"
-            code_fg = "#f9e2af"
-            table_border = "#313244"
-            th_bg = "#1e1e2e"
-            th_fg = "#89b4fa"
-            td_bg = "#11111b"
-            td_fg = "#cdd6f4"
-            hr_color = "#313244"
-        else:
-            body_fg = "#1e293b"
-            bold_fg = "#0f172a"
-            h1_color = "#1d4ed8"
-            h2_color = "#2563eb"
-            pre_bg = "#f8fafc"
-            pre_fg = "#0f172a"
-            pre_border = "#cbd5e1"
-            code_bg = "#f1f5f9"
-            code_fg = "#b45309"
-            table_border = "#cbd5e1"
-            th_bg = "#f1f5f9"
-            th_fg = "#0f172a"
-            td_bg = "#ffffff"
-            td_fg = "#334155"
-            hr_color = "#e2e8f0"
-
-        # Syntax highlight fenced code blocks
-        def replacer(m):
-            lang = (m.group(1) or "").strip().lower()
-            code_content = m.group(2)
-            if lang in ("algo", "algorithme", "alg"):
-                highlighted = highlight_algo_syntax(code_content, self.is_dark)
-            elif lang in ("python", "py"):
-                highlighted = highlight_python_syntax(code_content, self.is_dark)
-            else:
-                c_def = "#cdd6f4" if self.is_dark else "#0f172a"
-                highlighted = f'<span style="color:{c_def};">{html.escape(code_content)}</span>'
-            return f'\n\n<pre class="code-block" style="font-size: {pre_font_size}px;"><code>{highlighted}</code></pre>\n\n'
-
-        import re
-        pattern = re.compile(r'^[ \t]*(?:```|~~~)([a-zA-Z0-9_\-]*)[ \t]*\r?\n(.*?)\r?\n[ \t]*(?:```|~~~)[ \t]*$', re.DOTALL | re.MULTILINE)
-        processed_md = pattern.sub(replacer, md_text)
-
-        if HAS_MARKDOWN:
-            html_body = markdown.markdown(processed_md, extensions=["tables", "fenced_code", "nl2br"])
-        else:
-            html_body = f"<pre>{html.escape(processed_md)}</pre>"
-
-        styled_html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <meta charset="utf-8">
-        <style>
-          body {{
-            color: {body_fg};
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            font-size: {base_font_size}px;
-            line-height: 1.55;
-            padding: 4px;
-          }}
-          h1 {{ color: {h1_color}; font-size: {h1_font_size}px; border-bottom: 1px solid {hr_color}; padding-bottom: 4px; }}
-          h2 {{ color: {h2_color}; font-size: {h2_font_size}px; margin-top: 14px; margin-bottom: 6px; }}
-          b, strong {{ color: {bold_fg}; font-weight: bold; }}
-          code {{
-            background-color: {code_bg};
-            color: {code_fg};
-            padding: 2px 5px;
-            border-radius: 4px;
-            font-family: "JetBrains Mono", Consolas, monospace;
-            font-size: {pre_font_size - 1}px;
-          }}
-          pre.code-block {{
-            background-color: {pre_bg};
-            border: 1px solid {pre_border};
-            border-radius: 6px;
-            padding: 8px 12px;
-            margin: 8px 0;
-            overflow-x: auto;
-          }}
-          table {{
-            border-collapse: collapse;
-            width: 100%;
-            margin: 10px 0;
-            border: 1px solid {table_border};
-          }}
-          th {{
-            background-color: {th_bg};
-            color: {th_fg};
-            font-weight: bold;
-            padding: 6px 10px;
-            border: 1px solid {table_border};
-            text-align: left;
-          }}
-          td {{
-            background-color: {td_bg};
-            color: {td_fg};
-            padding: 6px 10px;
-            border: 1px solid {table_border};
-          }}
-        </style>
-        </head>
-        <body>
-        {html_body}
-        </body>
-        </html>
-        """
-        self.setHtml(styled_html)
-
-
+SnippetMarkdownBrowser = AppMarkdownReader
 class SnippetImageViewer(QWidget):
     """Interactive Image viewer for snippets with zoom, aspect ratio preservation, and picture switching."""
 
@@ -225,8 +57,7 @@ class SnippetImageViewer(QWidget):
         tb_layout.setContentsMargins(4, 4, 4, 4)
         tb_layout.setSpacing(6)
 
-        self.cb_images = QComboBox()
-        self.cb_images.currentIndexChanged.connect(self._on_image_selected)
+        self.cb_images = AppSelect(on_changed=self._on_image_selected)
         tb_layout.addWidget(self.cb_images, 1)
 
         self.btn_zoom_out = QPushButton("−")
@@ -616,7 +447,7 @@ class SnippetFilesViewer(QWidget):
             self.file_deleted_requested.emit(p)
 
 
-class SnippetTreeWidget(QTreeWidget):
+class SnippetTreeWidget(AppTreeView):
     """Tree Widget displaying collections and snippets matching disk folder hierarchy."""
 
     snippet_selected = pyqtSignal(object)  # SnippetItem
@@ -628,38 +459,23 @@ class SnippetTreeWidget(QTreeWidget):
     delete_snippet_requested = pyqtSignal(object)  # SnippetItem
 
     def __init__(self, parent=None, is_dark: bool = False):
-        super().__init__(parent)
+        super().__init__(
+            parent,
+            headers=["Collections & Extraits"],
+            animated=True,
+            indentation=16,
+            item_padding="5px 6px",
+            is_dark=is_dark,
+            on_selection_changed=self._on_selection_changed,
+            on_item_double_clicked=self._on_double_clicked,
+        )
         self.is_dark = is_dark
-        self.setColumnCount(1)
-        self.setHeaderLabels(["Collections & Extraits"])
-        self.header().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.setAnimated(True)
-        self.setIndentation(16)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
-        self.itemSelectionChanged.connect(self._on_selection_changed)
-        self.itemDoubleClicked.connect(self._on_double_clicked)
-        self._apply_style()
 
     def set_dark_mode(self, is_dark: bool):
         self.is_dark = is_dark
-        self._apply_style()
-
-    def _apply_style(self):
-        bg = "#181825" if self.is_dark else "#ffffff"
-        fg = "#cdd6f4" if self.is_dark else "#1e293b"
-        border = "#313244" if self.is_dark else "#e2e8f0"
-        hover = "#313244" if self.is_dark else "#f1f5f9"
-        sel_bg = "#45475a" if self.is_dark else "#e2e8f0"
-        sel_fg = "#ffffff" if self.is_dark else "#0f172a"
-
-        self.setStyleSheet(
-            f"QTreeWidget {{ background-color: {bg}; color: {fg}; border: 1px solid {border}; border-radius: 6px; outline: none; }}"
-            f"QTreeWidget::item {{ padding: 5px 6px; border-radius: 4px; }}"
-            f"QTreeWidget::item:hover {{ background-color: {hover}; }}"
-            f"QTreeWidget::item:selected {{ background-color: {sel_bg}; color: {sel_fg}; font-weight: bold; }}"
-            f"QHeaderView::section {{ background-color: {bg}; color: {fg}; border: none; border-bottom: 1px solid {border}; padding: 4px; font-weight: bold; }}"
-        )
+        super().set_dark_mode(is_dark)
 
     def populate(self, collections: List[CollectionNode]):
         self.clear()
@@ -742,38 +558,19 @@ class SnippetTreeWidget(QTreeWidget):
 
     def filter_tree(self, query: str):
         """Filters nodes matching query, expanding branches containing matches."""
-        query = query.strip().lower()
-
-        def check_item(item: QTreeWidgetItem) -> bool:
+        def _snippet_matcher(item: QTreeWidgetItem, q: str) -> bool:
             data = item.data(0, Qt.UserRole)
-            matches_self = False
+            if not data:
+                return False
+            kind, obj = data
+            if kind == "snippet":
+                searchable = f"{obj.title} {obj.category} {obj.desc} {obj.filename} {obj.code}".lower()
+                return q in searchable
+            if kind == "collection":
+                return q in obj.name.lower()
+            return False
 
-            if data:
-                kind, obj = data
-                if kind == "snippet":
-                    searchable = f"{obj.title} {obj.category} {obj.desc} {obj.filename} {obj.code}".lower()
-                    if query in searchable:
-                        matches_self = True
-                elif kind == "collection":
-                    if query in obj.name.lower():
-                        matches_self = True
-
-            any_child_matches = False
-            for i in range(item.childCount()):
-                child = item.child(i)
-                child_matches = check_item(child)
-                if child_matches:
-                    any_child_matches = True
-
-            visible = (not query) or matches_self or any_child_matches
-            item.setHidden(not visible)
-            if query and any_child_matches:
-                item.setExpanded(True)
-
-            return visible
-
-        for i in range(self.topLevelItemCount()):
-            check_item(self.topLevelItem(i))
+        self.filter_items(query, matcher=_snippet_matcher, expand_matches=True)
 
 
 class SnippetsWidget(QWidget):
@@ -985,6 +782,12 @@ class SnippetsWidget(QWidget):
         if hasattr(self, 'md_browser'):
             self.md_browser.zoom_out()
 
+    def reset_zoom(self):
+        if hasattr(self, 'preview_editor'):
+            self.preview_editor.reset_zoom()
+        if hasattr(self, 'md_browser'):
+            self.md_browser.reset_zoom()
+
     def reload_tree(self):
         """Scans collections and populates the tree view."""
         self._collections = scan_snippets_tree()
@@ -1103,7 +906,7 @@ class SnippetsWidget(QWidget):
                 f"Le fichier « {os.path.basename(dest_file)} » a été joint à l'extrait « {snippet.title} »."
             )
         except Exception as e:
-            QMessageBox.critical(self, "Erreur", f"Impossible de joindre le fichier :\n{e}")
+            report_error("Erreur", f"Impossible de joindre le fichier : {e}", parent=self)
 
     def _on_detach_file(self, file_path: str):
         if not os.path.exists(file_path):
@@ -1120,7 +923,7 @@ class SnippetsWidget(QWidget):
                     self.current_snippet.reload()
                     self._on_snippet_selected(self.current_snippet)
             except Exception as e:
-                QMessageBox.critical(self, "Erreur", f"Erreur lors de la suppression : {e}")
+                report_error("Erreur", f"Erreur lors de la suppression : {e}", parent=self)
 
     def _on_new_snippet_dialog(self, collection_dir: str):
         if not collection_dir or not os.path.isdir(collection_dir):
@@ -1143,7 +946,7 @@ class SnippetsWidget(QWidget):
                 self, "Snippet créé", f"Le snippet « {name} » a été créé dans la collection."
             )
         except Exception as e:
-            QMessageBox.critical(self, "Erreur", f"Impossible de créer le snippet :\n{e}")
+            report_error("Erreur", f"Impossible de créer le snippet : {e}", parent=self)
 
     def _on_new_collection_dialog(self, parent_dir: str):
         if not parent_dir or not os.path.isdir(parent_dir):
@@ -1166,7 +969,7 @@ class SnippetsWidget(QWidget):
                 self, "Collection créée", f"La collection « {col_name} » a été créée."
             )
         except Exception as e:
-            QMessageBox.critical(self, "Erreur", f"Impossible de créer le dossier :\n{e}")
+            report_error("Erreur", f"Impossible de créer le dossier : {e}", parent=self)
 
     def _on_delete_snippet(self, snippet: SnippetItem):
         ans = QMessageBox.warning(
@@ -1185,4 +988,4 @@ class SnippetsWidget(QWidget):
                 os.remove(snippet.code_file)
             self.reload_tree()
         except Exception as e:
-            QMessageBox.critical(self, "Erreur", f"Erreur lors de la suppression :\n{e}")
+            report_error("Erreur", f"Erreur lors de la suppression : {e}", parent=self)
