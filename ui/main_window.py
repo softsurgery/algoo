@@ -16,13 +16,14 @@ if sys.platform.startswith("linux") and os.environ.get("DISPLAY"):
 
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
-    QTabWidget, QToolBar, QAction, QFileDialog, QMessageBox,
+    QToolBar, QAction, QFileDialog, QMessageBox,
     QStatusBar, QLabel, QMenu, QToolButton, QApplication, QDialog
 )
 from PyQt5.QtGui import QIcon, QFont, QKeySequence, QDesktopServices, QPixmap
 from PyQt5.QtCore import Qt, QFileInfo, QUrl, QSettings, QTimer
 
 from compiler.transpiler import AlgoTranspiler, CompileError
+from ui.components import AppTabWidget
 from ui.editor import AlgoCodeEditor
 from ui.console import AlgoConsole
 from ui.python_view import PythonView
@@ -116,12 +117,13 @@ class MainWindow(QMainWindow):
         self.v_splitter = QSplitter(Qt.Vertical)
 
         # Multi-tab code editor
-        self.tab_widget = QTabWidget()
-        self.tab_widget.setTabsClosable(True)
-        self.tab_widget.setMovable(True)
-        self.tab_widget.setFont(QFont("SansSerif", 10))
-        self.tab_widget.tabCloseRequested.connect(self._on_close_tab)
-        self.tab_widget.currentChanged.connect(self._on_tab_changed)
+        self.tab_widget = AppTabWidget(
+            closable=True,
+            movable=True,
+            font=QFont("SansSerif", 10),
+            on_tab_close_requested=self._on_close_tab,
+            on_current_changed=self._on_tab_changed,
+        )
 
         self.v_splitter.addWidget(self.tab_widget)
 
@@ -138,26 +140,21 @@ class MainWindow(QMainWindow):
         self.h_splitter.addWidget(self.v_splitter)
 
         # Right Side Panel (Thonny style side tabs)
-        self.side_tabs = QTabWidget()
-        self.side_tabs.setTabPosition(QTabWidget.North)
-
-        # 1. Python Code View
         self.python_view = PythonView(self, is_dark=self.is_dark_mode)
-        self.side_tabs.addTab(self.python_view, "Code Python")
-
-        # 2. TDO View (Separate TDOG and TDOL tables)
         self.tdo_view = TDOView(self, is_dark=self.is_dark_mode)
-        self.side_tabs.addTab(self.tdo_view, "Tableau T.D.O.")
-
-        # 3. TDNT View
         self.tdnt_view = TDNTView(self, is_dark=self.is_dark_mode)
-        self.side_tabs.addTab(self.tdnt_view, "Tableau T.D.N.T.")
-
-        # 4. Guide & Assistant View
         self.assistant_view = AssistantView(self, is_dark=self.is_dark_mode)
-        self.side_tabs.addTab(self.assistant_view, "Guide et Aide")
 
-        self.side_tabs.currentChanged.connect(self._on_side_tab_changed)
+        self.side_tabs = AppTabWidget(
+            tabs=[
+                (self.python_view, "Code Python"),
+                (self.tdo_view, "Tableau T.D.O."),
+                (self.tdnt_view, "Tableau T.D.N.T."),
+                (self.assistant_view, "Guide et Aide"),
+            ],
+            tab_position=AppTabWidget.North,
+            on_current_changed=self._on_side_tab_changed,
+        )
 
         self.h_splitter.addWidget(self.side_tabs)
 

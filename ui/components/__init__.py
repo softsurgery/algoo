@@ -16,6 +16,7 @@ from ui.components.markdown_reader import (
 )
 from ui.components.radio_button import AppRadioButton
 from ui.components.select import AppSelect
+from ui.components.tabs import AppTabWidget
 from ui.components.tree_view import AppTreeView, NoFocusDelegate
 
 __all__ = [
@@ -24,6 +25,7 @@ __all__ = [
     "AppRadioButton",
     "AppRotatingChevron",
     "AppSelect",
+    "AppTabWidget",
     "AppTreeView",
     "ChevronRotationAnimator",
     "NoFocusDelegate",
