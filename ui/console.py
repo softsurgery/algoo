@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QColor, QTextCursor, QFont
 from PyQt5.QtCore import Qt, QProcess, pyqtSignal
+from ui.components import AppCloseButton
 from ui.platform_utils import get_bundle_dir, is_frozen
 
 
@@ -89,6 +90,7 @@ class AlgoConsole(QWidget):
     execution_finished = pyqtSignal(int)
     error_line_clicked = pyqtSignal(int)
     variable_state_updated = pyqtSignal(dict)
+    close_requested = pyqtSignal()
 
     def __init__(self, parent=None, is_dark=False):
         super().__init__(parent)
@@ -129,6 +131,14 @@ class AlgoConsole(QWidget):
         self.btn_stop.setEnabled(False)
         self.btn_stop.clicked.connect(self.stop_execution)
         header_layout.addWidget(self.btn_stop)
+
+        self.btn_close = AppCloseButton(
+            self,
+            tooltip="Fermer la console",
+            is_dark=self.is_dark,
+            on_clicked=self.close_requested.emit,
+        )
+        header_layout.addWidget(self.btn_close)
 
         layout.addLayout(header_layout)
 
@@ -175,6 +185,7 @@ class AlgoConsole(QWidget):
             self.output_text.setStyleSheet("background-color: #ffffff; color: #1e293b; border: 1px solid #e2e8f0; border-radius: 4px;")
             self.input_line.setStyleSheet("background-color: #ffffff; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 4px; padding: 3px;")
             self.title_label.setStyleSheet("color: #475569;")
+        self.btn_close.set_dark_mode(is_dark)
 
     def _print_banner(self):
         banner_color = "#3b82f6" if not self.is_dark else "#89b4fa"

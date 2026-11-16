@@ -12,7 +12,7 @@ from typing import Optional, List, Dict
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QTreeWidgetItem,
-    QLabel, QPushButton, QLineEdit, QTabWidget, QScrollArea, QTableWidget,
+    QLabel, QPushButton, QLineEdit, QScrollArea, QTableWidget,
     QTableWidgetItem, QHeaderView, QMenu, QAction, QFileDialog, QMessageBox,
     QInputDialog, QFrame, QPlainTextEdit, QApplication,
     QStackedWidget
@@ -20,7 +20,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QFont, QIcon, QPixmap, QDesktopServices, QColor
 from PyQt5.QtCore import Qt, pyqtSignal, QUrl, QSize
 
-from ui.components import AppMarkdownReader, AppSelect, AppTreeView
+from ui.components import AppMarkdownReader, AppSelect, AppTabWidget, AppTreeView
 
 from ui.editor import AlgoCodeEditor
 from ui.error_handler import report_error
@@ -663,9 +663,6 @@ class SnippetsWidget(QWidget):
 
         right_layout.addWidget(self.header_card)
 
-        # Multi-tab view
-        self.tabs = QTabWidget()
-
         # Tab 1: Code
         self.tab_code = QWidget()
         code_layout = QVBoxLayout(self.tab_code)
@@ -674,16 +671,22 @@ class SnippetsWidget(QWidget):
         self.preview_editor.setReadOnly(True)
         self.preview_editor.set_dark_mode(self.is_dark)
         code_layout.addWidget(self.preview_editor)
-        self.tabs.addTab(self.tab_code, "Code")
 
         # Tab 2: Markdown
         self.md_browser = SnippetMarkdownBrowser(self, is_dark=self.is_dark)
-        self.tabs.addTab(self.md_browser, "Documentation (.md)")
 
         # Tab 3: Companion & associated files (including pictures, diagrams, and data files)
         self.files_viewer = SnippetFilesViewer(self, is_dark=self.is_dark)
         self.files_viewer.insert_content_requested.connect(lambda txt: self.insert_requested.emit(txt, "Contenu fichier"))
-        self.tabs.addTab(self.files_viewer, "Fichiers associés")
+
+        # Multi-tab view
+        self.tabs = AppTabWidget(
+            tabs=[
+                (self.tab_code, "Code"),
+                (self.md_browser, "Documentation (.md)"),
+                (self.files_viewer, "Fichiers associés"),
+            ]
+        )
 
         # Standalone image viewer instance retained for compatibility
         self.image_viewer = SnippetImageViewer(self, is_dark=self.is_dark)
@@ -802,13 +805,9 @@ class SnippetsWidget(QWidget):
             if top.childCount() > 0:
                 self.tree_widget.setCurrentItem(top.child(0))
             else:
-                idx = self.tabs.indexOf(self.files_viewer)
-                if idx != -1:
-                    self.tabs.removeTab(idx)
+                self.tabs.remove_tab_widget(self.files_viewer)
         else:
-            idx = self.tabs.indexOf(self.files_viewer)
-            if idx != -1:
-                self.tabs.removeTab(idx)
+            self.tabs.remove_tab_widget(self.files_viewer)
 
     def _on_search_changed(self, text: str):
         self.tree_widget.filter_tree(text)
@@ -848,16 +847,15 @@ class SnippetsWidget(QWidget):
 
         # Update Files tab (only shown if companion/associated files exist)
         if snippet.companion_files:
-            if self.tabs.indexOf(self.files_viewer) == -1:
-                self.tabs.addTab(self.files_viewer, "Fichiers associés")
-                icon_color = "#cdd6f4" if self.is_dark else "#475569"
-                idx = self.tabs.indexOf(self.files_viewer)
-                self.tabs.setTabIcon(idx, create_icon("folder", icon_color, 16))
+            icon_color = "#cdd6f4" if self.is_dark else "#475569"
+            self.tabs.ensure_tab(
+                self.files_viewer,
+                "Fichiers associés",
+                create_icon("folder", icon_color, 16),
+            )
             self.files_viewer.set_files(snippet.companion_files)
         else:
-            idx = self.tabs.indexOf(self.files_viewer)
-            if idx != -1:
-                self.tabs.removeTab(idx)
+            self.tabs.remove_tab_widget(self.files_viewer)
 
     def _on_snippet_double_clicked(self, snippet: SnippetItem):
         self.insert_requested.emit(snippet.code, snippet.title)

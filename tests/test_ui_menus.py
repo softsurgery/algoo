@@ -116,7 +116,7 @@ class TestUIMenusAndDialogs(unittest.TestCase):
         self.assertIsNotNone(help_menu, "Aide menu should exist")
 
         actions = [a.text() for a in help_menu.actions()]
-        self.assertTrue(any("softsurgery/algoo" in a for a in actions), "GitHub repository action should be present")
+        self.assertFalse(any("GitHub" in a or "softsurgery/algoo" in a for a in actions), "GitHub repository action should not be present")
         self.assertTrue(any("Algoo" in a for a in actions), "About Algoo action should be present")
 
         # Check console banner
@@ -153,11 +153,20 @@ class TestUIMenusAndDialogs(unittest.TestCase):
         self.assertLessEqual(pix.height(), 96)
 
         # Verify About dialog in light mode
+        from ui.components import AppInfoTable
         dlg_light = AboutDialog(self.win, is_dark=False)
         self.assertFalse(dlg_light.windowIcon().isNull())
         self.assertFalse(dlg_light.logo_label.pixmap().isNull())
-        self.assertIn("softsurgery", dlg_light.details_label.text())
-        self.assertIn("github.com/softsurgery/algoo", dlg_light.details_label.text())
+        self.assertIsInstance(dlg_light.details_table, AppInfoTable)
+        self.assertEqual(dlg_light.details_table.rowCount(), 3)
+        table_texts = [
+            (dlg_light.details_table.item(r, 0).text(), dlg_light.details_table.item(r, 1).text())
+            for r in range(dlg_light.details_table.rowCount())
+        ]
+        self.assertIn(("Développeur", "softsurgery"), table_texts)
+        self.assertIn(("Moteur", "Python 3 + NumPy"), table_texts)
+        self.assertIn(("Interface", "PyQt5"), table_texts)
+        self.assertFalse(hasattr(dlg_light, "btn_github"))
         self.assertIn("background-color: #ffffff;", dlg_light.styleSheet())
         dlg_light.btn_close.click()
 

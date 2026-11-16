@@ -24,7 +24,7 @@ from ui.dialogs.preferences_dialog.navigation import (
 )
 from ui.dialogs.preferences_dialog.action_bar import PreferencesActionBar
 from ui.dialogs.preferences_dialog.pages import (
-    ThemePage, EditorPage, ColorsPage
+    ThemePage, EditorPage, ColorsPage, InterfacePage
 )
 from ui.dialogs.preferences_dialog.styles import apply_preferences_styles
 
@@ -54,6 +54,11 @@ class PreferencesDialog(QDialog):
         self.current_theme_mode = self.db.get_theme_mode(default="system")
         self.current_syntax_preset = self.db.get_syntax_preset(default="Algoo")
         self.editor_settings = self.db.get_editor_settings()
+        self.ui_visibility = (
+            self.db.get_ui_visibility()
+            if hasattr(self.db, "get_ui_visibility")
+            else {"symbols_bar": True, "console": True, "side_panel": True}
+        )
 
         self._setup_ui()
         self._load_values()
@@ -81,6 +86,7 @@ class PreferencesDialog(QDialog):
         self.cat_ed = self.tree.cat_ed
         self.item_font = self.tree.item_font
         self.item_colors = self.tree.item_colors
+        self.item_interface = self.tree.item_interface
 
         self.tree.currentItemChanged.connect(self._on_tree_item_changed)
         self.splitter.addWidget(self.tree)
@@ -94,6 +100,7 @@ class PreferencesDialog(QDialog):
         self.page_theme = ThemePage(self)
         self.page_editor = EditorPage(self)
         self.page_colors = ColorsPage(self, is_dark=self.is_dark)
+        self.page_interface = InterfacePage(self)
 
         # Expose subcomponent aliases for tests & backward-compatibility
         self.btn_group_mode = self.page_theme.btn_group_mode
@@ -118,9 +125,15 @@ class PreferencesDialog(QDialog):
         self.rb_preview_light = self.page_colors.rb_preview_light
         self.preview_editor = self.page_colors.preview_editor
 
-        self.pages.addWidget(self.page_theme)   # Index 0
-        self.pages.addWidget(self.page_editor)  # Index 1
-        self.pages.addWidget(self.page_colors)  # Index 2
+        self.pages.addWidget(self.page_theme)      # Index 0
+        self.pages.addWidget(self.page_editor)     # Index 1
+        self.pages.addWidget(self.page_colors)     # Index 2
+        self.pages.addWidget(self.page_interface)  # Index 3
+
+        self.chk_symbols_bar = self.page_interface.chk_symbols_bar
+        self.chk_console = self.page_interface.chk_console
+        self.chk_side_panel = self.page_interface.chk_side_panel
+        self.btn_restore_views = self.page_interface.btn_restore_all
 
         self.splitter.addWidget(self.pages)
         self.splitter.setStretchFactor(0, 0)
@@ -193,6 +206,9 @@ class PreferencesDialog(QDialog):
         else:
             self.rb_preview_light.setChecked(True)
 
+        # 4. UI visibility
+        self.page_interface.set_ui_visibility(self.ui_visibility)
+
         self._on_syntax_preset_changed()
 
     def _on_theme_mode_radio_clicked(self, _=None):
@@ -245,6 +261,7 @@ class PreferencesDialog(QDialog):
             idx = self.combo_syntax_preset.findText("Algoo")
             if idx >= 0:
                 self.combo_syntax_preset.setCurrentIndex(idx)
+            self.page_interface.restore_all()
             self._on_syntax_preset_changed()
 
     def apply_preferences(self):
@@ -263,6 +280,10 @@ class PreferencesDialog(QDialog):
         self.db.set_syntax_preset(preset_name)
         self.db.set_syntax_colors(preset["dark"], is_dark=True)
         self.db.set_syntax_colors(preset["light"], is_dark=False)
+
+        # 4. UI visibility
+        if hasattr(self.db, "set_ui_visibility"):
+            self.db.set_ui_visibility(self.page_interface.get_ui_visibility())
 
         # Calculate effective dark mode
         if chosen_mode == "system":

@@ -32,15 +32,20 @@ class TestPreferencesDialog(unittest.TestCase):
         dlg = PreferencesDialog(parent=None, is_dark=False, db=self.db)
         self.assertIsNotNone(dlg.tree)
         self.assertIsNotNone(dlg.pages)
-        self.assertEqual(dlg.tree.topLevelItemCount(), 2)
+        self.assertEqual(dlg.tree.topLevelItemCount(), 3)
 
-        # Check top level items: Thème and Éditeur de code
+        # Check top level items: Thème, Éditeur de code, Interface & Panneaux
         item_theme = dlg.tree.topLevelItem(0)
         self.assertIn("Thème", item_theme.text(0))
 
         item_editor = dlg.tree.topLevelItem(1)
         self.assertIn("Éditeur", item_editor.text(0))
         self.assertEqual(item_editor.childCount(), 2)
+
+        item_interface = dlg.tree.topLevelItem(2)
+        self.assertIn("Interface", item_interface.text(0))
+        dlg.tree.setCurrentItem(item_interface)
+        self.assertEqual(dlg.pages.currentIndex(), 3)
 
         # Test selecting page via tree
         child_item = item_editor.child(1) # Couleurs de syntaxe
@@ -158,6 +163,56 @@ class TestPreferencesDialog(unittest.TestCase):
         saved_mono_light = self.db.get_syntax_colors(is_dark=False)
         self.assertEqual(saved_mono_light["keyword"], SYNTAX_PRESETS["Monokai"]["light"]["keyword"])
         dlg.close()
+
+    def test_interface_panel_close_and_restore_in_preferences(self):
+        from ui.main_window import MainWindow
+
+        win = MainWindow()
+        win.db = self.db
+        win.apply_ui_visibility()
+        self.assertTrue(win.isMaximized())
+
+        self.assertFalse(win.symbols_bar.isHidden())
+        self.assertFalse(win.console.isHidden())
+        self.assertFalse(win.side_tabs.isHidden())
+
+        # Close each panel via its × button
+        win.symbols_bar.btn_close.click()
+        win.console.btn_close.click()
+        win.btn_close_side_panel.click()
+
+        self.assertTrue(win.symbols_bar.isHidden())
+        self.assertTrue(win.console.isHidden())
+        self.assertTrue(win.side_tabs.isHidden())
+        self.assertEqual(
+            self.db.get_ui_visibility(),
+            {"symbols_bar": False, "console": False, "side_panel": False},
+        )
+
+        # Open PreferencesDialog: checkboxes reflect hidden state
+        dlg = PreferencesDialog(parent=win, is_dark=False, db=self.db)
+        dlg.settings_applied.connect(win._apply_all_preferences)
+        self.assertFalse(dlg.chk_symbols_bar.isChecked())
+        self.assertFalse(dlg.chk_console.isChecked())
+        self.assertFalse(dlg.chk_side_panel.isChecked())
+
+        # Restore all views via Preferences button and apply
+        dlg.btn_restore_views.click()
+        self.assertTrue(dlg.chk_symbols_bar.isChecked())
+        self.assertTrue(dlg.chk_console.isChecked())
+        self.assertTrue(dlg.chk_side_panel.isChecked())
+        dlg.apply_preferences()
+
+        self.assertFalse(win.symbols_bar.isHidden())
+        self.assertFalse(win.console.isHidden())
+        self.assertFalse(win.side_tabs.isHidden())
+        self.assertEqual(
+            self.db.get_ui_visibility(),
+            {"symbols_bar": True, "console": True, "side_panel": True},
+        )
+
+        dlg.close()
+        win.close()
 
 
 if __name__ == "__main__":

@@ -3,12 +3,14 @@ Reusable UI component primitives with declarative props for Algoo IDE.
 """
 
 from ui.components.checkbox import AppCheckBox
+from ui.components.close_button import AppCloseButton
 from ui.components.chevron import (
     AppRotatingChevron,
     ChevronRotationAnimator,
     chevron_color,
     draw_chevron,
 )
+from ui.components.info_table import AppInfoTable
 from ui.components.markdown_reader import (
     AppMarkdownReader,
     highlight_algo_syntax,
@@ -16,14 +18,18 @@ from ui.components.markdown_reader import (
 )
 from ui.components.radio_button import AppRadioButton
 from ui.components.select import AppSelect
+from ui.components.tabs import AppTabWidget
 from ui.components.tree_view import AppTreeView, NoFocusDelegate
 
 __all__ = [
     "AppCheckBox",
+    "AppCloseButton",
+    "AppInfoTable",
     "AppMarkdownReader",
     "AppRadioButton",
     "AppRotatingChevron",
     "AppSelect",
+    "AppTabWidget",
     "AppTreeView",
     "ChevronRotationAnimator",
     "NoFocusDelegate",
