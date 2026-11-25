@@ -428,6 +428,36 @@ class TestAlgoTranspiler(unittest.TestCase):
             self.transpiler.compile(algo_tdo)
         self.assertIn("Type manquant", str(cm.exception))
 
+    def test_membership_interval_and_set_with_parens_and_logical_ops(self):
+        """Verifies ∈ [a .. b] and ∈ {a, b} preserve outer parens and logical operators."""
+        from compiler.expressions import ExpressionTranslator
+        t = ExpressionTranslator()
+
+        self.assertEqual(
+            t.translate_expression('(Majus(ch[i]) ∈ ["A" .. "Z"] Ou ch[i] = " ")'),
+            '(("A" <= Majus(ch[i]) <= "Z") or ch[i] == " ")',
+        )
+        self.assertEqual(
+            t.translate_expression('ch[i] = " " Ou Majus(ch[i]) ∈ ["A" .. "Z"]'),
+            'ch[i] == " " or ("A" <= Majus(ch[i]) <= "Z")',
+        )
+        self.assertEqual(
+            t.translate_expression('a ∈ [1 .. 10] Et b ∈ [20 .. 30]'),
+            '(1 <= a <= 10) and (20 <= b <= 30)',
+        )
+        self.assertEqual(
+            t.translate_expression('Non x ∈ [1 .. 10]'),
+            'not (1 <= x <= 10)',
+        )
+        self.assertEqual(
+            t.translate_expression('(Majus(ch[i]) ∈ {"A", "E", "I"} Ou ch[i] = " ")'),
+            '((Majus(ch[i]) in {"A", "E", "I"}) or ch[i] == " ")',
+        )
+        self.assertEqual(
+            t.translate_expression('x ∈ [T[0] .. T[n - 1]]'),
+            '(T[0] <= x <= T[n - 1])',
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
