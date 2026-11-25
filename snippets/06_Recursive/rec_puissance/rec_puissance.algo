@@ -1,0 +1,30 @@
+Fonction PuissanceRec(x: Réel, n: Entier) : Réel
+DEBUT
+  Si n = 0 Alors
+    Retourner 1
+  Sinon
+    Retourner x * PuissanceRec(x, n - 1)
+  FinSi
+FIN
+
+Tableau de déclaration des objets locaux
+Objet   Type / Nature
+/       /
+
+ALGORITHME PuissanceRecursive
+DEBUT
+  Ecrire("Donner la base x : ")
+  Lire(x)
+  Répéter
+    Ecrire("Donner l'exposant positif n : ")
+    Lire(n)
+  Jusqu'à n >= 0
+
+  Ecrire_nl(x, " ^ ", n, " = ", PuissanceRec(x, n))
+FIN
+
+Tableau de déclaration des objets globaux
+Objet          Type / Nature
+PuissanceRec   Fonction
+x              Réel
+n              Entier
