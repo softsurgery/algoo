@@ -1,0 +1,46 @@
+# Conversion Minuscule -> Majuscule via Ord et Chr
+Fonction VersMajuscule(ch: Chaîne) : Chaîne
+DEBUT
+  res <- ""
+  Pour i de 0 à Long(ch) - 1 Faire
+    c <- ch[i]
+    Si c ∈ ["a" .. "z"] Alors
+      # Décalage ASCII entre 'a' (97) et 'A' (65) = 32
+      c <- Chr(Ord(c) - 32)
+    FinSi
+    res <- res + c
+  Fin Pour
+  Retourner res
+FIN
+
+Tableau de déclaration des objets locaux
+Objet   Type / Nature
+res     Chaîne
+i       Entier
+c       Caractère
+
+ALGORITHME CodesAsciiOrdChr
+DEBUT
+  Ecrire("Donner une chaîne de caractères : ")
+  Lire(ch)
+
+  Ecrire_nl("--- Codes ASCII des caractères (Ord) ---")
+  Pour i de 0 à Long(ch) - 1 Faire
+    Ecrire_nl("'", ch[i], "' -> ", Ord(ch[i]))
+  Fin Pour
+
+  Ecrire_nl("--- Alphabet majuscule avec Chr(65..90) ---")
+  Pour code de 65 à 90 Faire
+    Ecrire(Chr(code), " ")
+  Fin Pour
+  Ecrire_nl("")
+
+  Ecrire_nl("--- En majuscules via Ord/Chr ---")
+  Ecrire_nl(VersMajuscule(ch))
+FIN
+
+Tableau de déclaration des objets globaux
+Objet           Type / Nature
+VersMajuscule   Fonction
+ch              Chaîne
+i, code         Entier

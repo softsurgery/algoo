@@ -1,0 +1,56 @@
+Fonction ChiffrerCesar(ch: Chaîne, k: Entier) : Chaîne
+DEBUT
+  res <- ""
+  k <- k Mod 26
+  Pour i de 0 à Long(ch) - 1 Faire
+    c <- ch[i]
+    Si c ∈ ["A" .. "Z"] Alors
+      code <- (Ord(c) - Ord("A") + k) Mod 26 + Ord("A")
+      res <- res + Chr(code)
+    Sinon Si c ∈ ["a" .. "z"] Alors
+      code <- (Ord(c) - Ord("a") + k) Mod 26 + Ord("a")
+      res <- res + Chr(code)
+    Sinon
+      res <- res + c
+    FinSi
+  Fin Pour
+  Retourner res
+FIN
+
+Tableau de déclaration des objets locaux
+Objet     Type / Nature
+res       Chaîne
+i, code   Entier
+c         Caractère
+
+Fonction DechiffrerCesar(ch: Chaîne, k: Entier) : Chaîne
+DEBUT
+  Retourner ChiffrerCesar(ch, 26 - (k Mod 26))
+FIN
+
+Tableau de déclaration des objets locaux
+Objet   Type / Nature
+/       /
+
+ALGORITHME ChiffrementCesar
+DEBUT
+  Ecrire("Donner le message à chiffrer : ")
+  Lire(msg)
+  Répéter
+    Ecrire("Donner la clé de décalage k (>= 0) : ")
+    Lire(k)
+  Jusqu'à k >= 0
+
+  crypte <- ChiffrerCesar(msg, k)
+  clair <- DechiffrerCesar(crypte, k)
+
+  Ecrire_nl("Message chiffré   : ", crypte)
+  Ecrire_nl("Message déchiffré : ", clair)
+FIN
+
+Tableau de déclaration des objets globaux
+Objet             Type / Nature
+ChiffrerCesar     Fonction
+DechiffrerCesar   Fonction
+msg, crypte, clair Chaîne
+k                 Entier

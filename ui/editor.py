@@ -477,6 +477,18 @@ class AlgoCodeEditor(QPlainTextEdit):
         else:
             super().keyPressEvent(event)
 
+    def insert_indented_block(self, text: str):
+        """Inserts text, applying the current line's leading indentation to subsequent lines."""
+        if '\n' in text:
+            cursor = self.textCursor()
+            block_text = cursor.block().text()
+            indent_match = re.match(r'^(\s*)', block_text)
+            current_indent = indent_match.group(1) if indent_match else ""
+            if current_indent:
+                lines = text.split('\n')
+                text = '\n'.join([lines[0]] + [current_indent + line for line in lines[1:]])
+        self.insertPlainText(text)
+
     def wheelEvent(self, event):
         """Ctrl + Mouse Wheel zoom feature."""
         if event.modifiers() & Qt.ControlModifier:

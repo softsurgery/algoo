@@ -1,0 +1,27 @@
+Fonction FactorielRec(n: Entier) : Entier
+DEBUT
+  Si n <= 1 Alors
+    Retourner 1
+  Sinon
+    Retourner n * FactorielRec(n - 1)
+  FinSi
+FIN
+
+Tableau de déclaration des objets locaux
+Objet   Type / Nature
+/       /
+
+ALGORITHME FactorielRecursif
+DEBUT
+  Répéter
+    Ecrire("Donner un entier positif n : ")
+    Lire(n)
+  Jusqu'à n >= 0
+
+  Ecrire_nl(n, "! = ", FactorielRec(n))
+FIN
+
+Tableau de déclaration des objets globaux
+Objet          Type / Nature
+FactorielRec   Fonction
+n              Entier

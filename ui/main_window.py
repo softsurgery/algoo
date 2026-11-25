@@ -878,7 +878,10 @@ class MainWindow(QMainWindow):
     def _on_insert_symbol(self, text: str):
         editor = self.current_editor()
         if editor:
-            editor.insertPlainText(text)
+            if hasattr(editor, "insert_indented_block"):
+                editor.insert_indented_block(text)
+            else:
+                editor.insertPlainText(text)
             editor.setFocus()
 
     def _sync_tabs_to_db(self):

@@ -1,0 +1,55 @@
+# Méthode 1 : Affichage récursif avec un compteur i (de 0 à n - 1)
+Procédure AfficherRecCompteur(T: Tab, n: Entier, i: Entier)
+DEBUT
+  Si i < n Alors
+    Ecrire(T[i], "  ")
+    AfficherRecCompteur(T, n, i + 1)
+  FinSi
+FIN
+
+Tableau de déclaration des objets locaux
+Objet   Type / Nature
+/       /
+
+# Méthode 2 : Affichage récursif en tronquant la taille n
+Procédure AfficherRecTronquer(T: Tab, n: Entier)
+DEBUT
+  Si n > 0 Alors
+    AfficherRecTronquer(T, n - 1)
+    Ecrire(T[n - 1], "  ")
+  FinSi
+FIN
+
+Tableau de déclaration des objets locaux
+Objet   Type / Nature
+/       /
+
+ALGORITHME AffichageTableauRecursif
+DEBUT
+  Répéter
+    Ecrire("Donner la taille du tableau (1 à 50) : ")
+    Lire(n)
+  Jusqu'à (n >= 1) Et (n <= 50)
+
+  Pour i de 0 à n - 1 Faire
+    T[i] <- Aléa(1, 99)
+  Fin Pour
+
+  Ecrire_nl("--- Méthode 1 (compteur i) ---")
+  AfficherRecCompteur(T, n, 0)
+  Ecrire_nl("")
+
+  Ecrire_nl("--- Méthode 2 (tronquer n) ---")
+  AfficherRecTronquer(T, n)
+  Ecrire_nl("")
+FIN
+
+Tableau de déclaration des nouveaux types
+Tab = Tableau de 50 Entier
+
+Tableau de déclaration des objets globaux
+Objet                 Type / Nature
+AfficherRecCompteur   Procédure
+AfficherRecTronquer   Procédure
+T                     Tab
+n, i                  Entier

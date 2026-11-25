@@ -683,12 +683,12 @@ class AlgoValidator:
         return results
 
     @staticmethod
-    def extract_table_declarations(lines: list) -> tuple:
+    def extract_table_declarations(lines: list, preserve_case: bool = False) -> tuple:
         """
         Parses declaration lines from TDOG or TDOL.
         Returns:
             (variables_dict, subprograms_dict)
-            where variables_dict maps name.lower() -> type_part
+            where variables_dict maps name (or name.lower() if not preserve_case) -> type_part
             and subprograms_dict maps name.lower() -> 'procedure' | 'fonction'
         """
         variables = {}
@@ -730,7 +730,8 @@ class AlgoValidator:
                         if t_low.startswith(('procedure', 'procédure', 'fonction')):
                             subprograms[clean_name.lower()] = t_low
                         else:
-                            variables[clean_name.lower()] = type_part
+                            key = clean_name if preserve_case else clean_name.lower()
+                            variables[key] = type_part
 
         return variables, subprograms
 
