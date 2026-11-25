@@ -30,7 +30,7 @@ def highlight_algo_syntax(code_text: str, is_dark: bool) -> str:
         c_op = "#f38ba8"      # red/pink (operators)
         c_num = "#fab387"     # peach (numbers)
         c_str = "#a6e3a1"     # green (strings)
-        c_com = "#6c7086"     # grey (comments)
+        c_com = "#a6adc8"     # high-contrast muted grey (comments)
         c_bool = "#fab387"    # peach (booleans)
         c_ident = "#cdd6f4"   # light text
     else:
@@ -41,7 +41,7 @@ def highlight_algo_syntax(code_text: str, is_dark: bool) -> str:
         c_op = "#cf222e"      # red
         c_num = "#0969da"     # blue
         c_str = "#0a7029"     # dark green
-        c_com = "#6e7781"     # grey
+        c_com = "#475569"     # high-contrast slate grey (comments)
         c_bool = "#1a7f37"    # green
         c_ident = "#0f172a"   # dark text
 
@@ -104,7 +104,7 @@ def highlight_python_syntax(code_text: str, is_dark: bool) -> str:
         c_kw = "#cba6f7"
         c_builtin = "#89b4fa"
         c_str = "#a6e3a1"
-        c_com = "#6c7086"
+        c_com = "#a6adc8"
         c_num = "#fab387"
         c_bool = "#fab387"
         c_op = "#f38ba8"
@@ -113,7 +113,7 @@ def highlight_python_syntax(code_text: str, is_dark: bool) -> str:
         c_kw = "#8250df"
         c_builtin = "#0969da"
         c_str = "#0a7029"
-        c_com = "#6e7781"
+        c_com = "#475569"
         c_num = "#0969da"
         c_bool = "#1a7f37"
         c_op = "#cf222e"
