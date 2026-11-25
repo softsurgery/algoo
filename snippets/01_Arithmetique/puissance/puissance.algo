@@ -1,0 +1,31 @@
+Fonction Puissance(x: Réel, n: Entier) : Réel
+DEBUT
+  res <- 1
+  Pour i de 1 à n Faire
+    res <- res * x
+  Fin Pour
+  Retourner res
+FIN
+
+Tableau de déclaration des objets locaux
+Objet   Type / Nature
+res     Réel
+i       Entier
+
+ALGORITHME CalculPuissance
+DEBUT
+  Ecrire("Donner la base x : ")
+  Lire(x)
+  Répéter
+    Ecrire("Donner l'exposant positif n : ")
+    Lire(n)
+  Jusqu'à n >= 0
+
+  Ecrire_nl(x, " ^ ", n, " = ", Puissance(x, n))
+FIN
+
+Tableau de déclaration des objets globaux
+Objet       Type / Nature
+Puissance   Fonction
+x           Réel
+n           Entier

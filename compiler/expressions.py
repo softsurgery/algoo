@@ -91,22 +91,8 @@ class ExpressionTranslator:
         # Match single or double quoted strings
         s = re.sub(r'("[^"\\]*(?:\\.[^"\\]*)*"|\'[^\'\\]*(?:\\.[^\'\\]*)*\')', save_str, expr_str)
 
-        # Handle membership in intervals: expr  [a .. b] or expr dans [a .. b]
-        m_int = re.search(r'(.+?)\s+(?:|∈|dans|in)\s+\[\s*(.+?)\s*\.\.\s*(.+?)\s*\]', s, re.IGNORECASE)
-        if m_int:
-            val = self.translate_expression(m_int.group(1).strip())
-            low = self.translate_expression(m_int.group(2).strip())
-            high = self.translate_expression(m_int.group(3).strip())
-            replacement = f"({low} <= {val} <= {high})"
-            s = s[:m_int.start()] + replacement + s[m_int.end():]
-
-        # Handle membership in set: expr  {a, b, c}
-        m_set = re.search(r'(.+?)\s+(?:|∈|dans|in)\s+\{\s*(.+?)\s*\}', s, re.IGNORECASE)
-        if m_set:
-            val = self.translate_expression(m_set.group(1).strip())
-            items = [self.translate_expression(it.strip()) for it in m_set.group(2).split(',') if it.strip()]
-            replacement = f"({val} in {{{', '.join(items)}}})"
-            s = s[:m_set.start()] + replacement + s[m_set.end():]
+        # Handle membership in intervals (expr ∈ [a .. b]) and sets (expr ∈ {a, b, c})
+        s = self._translate_membership(s)
 
         # Handle 2D index in expressions: M[i, j]
         s = re.sub(r'([a-zA-Z0-9_]+)\s*\[\s*(.+?)\s*,\s*(.+?)\s*\]', r'\1[\2, \3]', s)
@@ -148,4 +134,131 @@ class ExpressionTranslator:
         for placeholder, original in str_map.items():
             s = s.replace(placeholder, original)
 
+        return s
+
+    @staticmethod
+    def _find_matching_closer(s: str, open_idx: int, close_ch: str) -> int:
+        """Find the index of the matching closer for s[open_idx], or -1 if unmatched."""
+        depth = 0
+        for i in range(open_idx, len(s)):
+            ch = s[i]
+            if ch in '([{':
+                depth += 1
+            elif ch in ')]}':
+                depth -= 1
+                if depth == 0:
+                    return i if ch == close_ch else -1
+                if depth < 0:
+                    return -1
+        return -1
+
+    @staticmethod
+    def _find_lhs_start(s: str, end_idx: int) -> int:
+        """Scan backwards from end_idx to find the start of the LHS operand of ∈/dans/in."""
+        depth = 0
+        i = end_idx - 1
+        while i >= 0:
+            ch = s[i]
+            if ch in ')]}':
+                depth += 1
+                i -= 1
+                continue
+            if ch in '([{':
+                if depth > 0:
+                    depth -= 1
+                    i -= 1
+                    continue
+                return i + 1
+            if depth == 0:
+                if ch in (',', '=', '<', '>', '≤', '≥', '≠', ':'):
+                    return i + 1
+                if ch.isalnum() or ch == '_':
+                    j = i
+                    while j > 0 and (s[j - 1].isalnum() or s[j - 1] == '_'):
+                        j -= 1
+                    if s[j:i + 1].lower() in ('et', 'ou', 'non', 'and', 'or', 'not'):
+                        return i + 1
+                    i = j - 1
+                    continue
+            i -= 1
+        return 0
+
+    @staticmethod
+    def _find_top_level_dotdot(s: str) -> int:
+        """Find the index of '..' at bracket/paren depth 0, or -1 if not found."""
+        depth = 0
+        i = 0
+        while i < len(s) - 1:
+            ch = s[i]
+            if ch in '([{':
+                depth += 1
+            elif ch in ')]}':
+                depth = max(0, depth - 1)
+            elif depth == 0 and s[i:i + 2] == '..':
+                return i
+            i += 1
+        return -1
+
+    @staticmethod
+    def _split_top_level_commas(s: str) -> list:
+        """Split s on commas at bracket/paren depth 0."""
+        parts = []
+        depth = 0
+        start = 0
+        for i, ch in enumerate(s):
+            if ch in '([{':
+                depth += 1
+            elif ch in ')]}':
+                depth = max(0, depth - 1)
+            elif ch == ',' and depth == 0:
+                parts.append(s[start:i])
+                start = i + 1
+        parts.append(s[start:])
+        return parts
+
+    def _translate_membership(self, s: str) -> str:
+        """Translate all interval (∈ [a .. b]) and set (∈ {a, b}) membership expressions."""
+        pattern = re.compile(r'\s+(?:|∈|dans|in)\s+([\[{])', re.IGNORECASE)
+        search_pos = 0
+        while True:
+            m = pattern.search(s, search_pos)
+            if not m:
+                break
+            opener = m.group(1)
+            closer = ']' if opener == '[' else '}'
+            opener_idx = m.end() - 1
+            closer_idx = self._find_matching_closer(s, opener_idx, closer)
+            if closer_idx == -1:
+                search_pos = m.end()
+                continue
+
+            val_start = self._find_lhs_start(s, m.start())
+            while val_start < m.start() and s[val_start].isspace():
+                val_start += 1
+            val_str = s[val_start:m.start()].strip()
+            if not val_str:
+                search_pos = m.end()
+                continue
+
+            rhs_inner = s[opener_idx + 1:closer_idx]
+            if opener == '[':
+                dotdot_idx = self._find_top_level_dotdot(rhs_inner)
+                if dotdot_idx == -1:
+                    search_pos = m.end()
+                    continue
+                val = self.translate_expression(val_str)
+                low = self.translate_expression(rhs_inner[:dotdot_idx].strip())
+                high = self.translate_expression(rhs_inner[dotdot_idx + 2:].strip())
+                replacement = f"({low} <= {val} <= {high})"
+            else:
+                val = self.translate_expression(val_str)
+                items = [
+                    self.translate_expression(it.strip())
+                    for it in self._split_top_level_commas(rhs_inner)
+                    if it.strip()
+                ]
+                replacement = f"({val} in {{{', '.join(items)}}})"
+
+            s = s[:val_start] + replacement + s[closer_idx + 1:]
+            search_pos = val_start + len(replacement)
         return s

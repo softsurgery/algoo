@@ -1,0 +1,221 @@
+# ==========================================
+# Fonctions spécifiques : Binaire (Base 2)
+# ==========================================
+Fonction DecVersBinaire(n: Entier) : Chaîne
+DEBUT
+  Si n = 0 Alors
+    Retourner "0"
+  FinSi
+
+  res <- ""
+  Tant que n > 0 Faire
+    res <- Convch(n Mod 2) + res
+    n <- n Div 2
+  Fin Tant que
+  Retourner res
+FIN
+
+Tableau de déclaration des objets locaux
+Objet   Type / Nature
+res     Chaîne
+
+Fonction BinaireVersDec(ch: Chaîne) : Entier
+DEBUT
+  res <- 0
+  Pour i de 0 à Long(ch) - 1 Faire
+    res <- res * 2 + (Ord(ch[i]) - Ord("0"))
+  Fin Pour
+  Retourner res
+FIN
+
+Tableau de déclaration des objets locaux
+Objet   Type / Nature
+res, i  Entier
+
+# ==========================================
+# Fonctions spécifiques : Octal (Base 8)
+# ==========================================
+Fonction DecVersOctal(n: Entier) : Chaîne
+DEBUT
+  Si n = 0 Alors
+    Retourner "0"
+  FinSi
+
+  res <- ""
+  Tant que n > 0 Faire
+    res <- Convch(n Mod 8) + res
+    n <- n Div 8
+  Fin Tant que
+  Retourner res
+FIN
+
+Tableau de déclaration des objets locaux
+Objet   Type / Nature
+res     Chaîne
+
+Fonction OctalVersDec(ch: Chaîne) : Entier
+DEBUT
+  res <- 0
+  Pour i de 0 à Long(ch) - 1 Faire
+    res <- res * 8 + (Ord(ch[i]) - Ord("0"))
+  Fin Pour
+  Retourner res
+FIN
+
+Tableau de déclaration des objets locaux
+Objet   Type / Nature
+res, i  Entier
+
+# ==========================================
+# Fonctions spécifiques : Hexadécimal (Base 16)
+# ==========================================
+Fonction DecVersHexa(n: Entier) : Chaîne
+DEBUT
+  Si n = 0 Alors
+    Retourner "0"
+  FinSi
+
+  digits <- "0123456789ABCDEF"
+  res <- ""
+  Tant que n > 0 Faire
+    r <- n Mod 16
+    res <- digits[r] + res
+    n <- n Div 16
+  Fin Tant que
+  Retourner res
+FIN
+
+Tableau de déclaration des objets locaux
+Objet     Type / Nature
+digits    Chaîne
+res       Chaîne
+r         Entier
+
+Fonction HexaVersDec(ch: Chaîne) : Entier
+DEBUT
+  res <- 0
+  Pour i de 0 à Long(ch) - 1 Faire
+    c <- Majus(ch[i])
+    Si c ∈ ["0" .. "9"] Alors
+      v <- Ord(c) - Ord("0")
+    Sinon
+      v <- Ord(c) - Ord("A") + 10
+    FinSi
+    res <- res * 16 + v
+  Fin Pour
+  Retourner res
+FIN
+
+Tableau de déclaration des objets locaux
+Objet     Type / Nature
+res, i, v Entier
+c         Caractère
+
+# ==========================================
+# Fonctions génériques : Toutes bases (2..16)
+# ==========================================
+Fonction DecVersBase(n: Entier, base: Entier) : Chaîne
+DEBUT
+  Si n = 0 Alors
+    Retourner "0"
+  FinSi
+
+  digits <- "0123456789ABCDEF"
+  res <- ""
+  Tant que n > 0 Faire
+    r <- n Mod base
+    res <- digits[r] + res
+    n <- n Div base
+  Fin Tant que
+  Retourner res
+FIN
+
+Tableau de déclaration des objets locaux
+Objet     Type / Nature
+digits    Chaîne
+res       Chaîne
+r         Entier
+
+Fonction BaseVersDec(ch: Chaîne, base: Entier) : Entier
+DEBUT
+  res <- 0
+  Pour i de 0 à Long(ch) - 1 Faire
+    c <- Majus(ch[i])
+    Si c ∈ ["0" .. "9"] Alors
+      v <- Ord(c) - Ord("0")
+    Sinon
+      v <- Ord(c) - Ord("A") + 10
+    FinSi
+    res <- res * base + v
+  Fin Pour
+  Retourner res
+FIN
+
+Tableau de déclaration des objets locaux
+Objet     Type / Nature
+res, i, v Entier
+c         Caractère
+
+# ==========================================
+# Programme Principal
+# ==========================================
+ALGORITHME ConversionsBases
+DEBUT
+  Ecrire_nl("1. Décimal -> Binaire / Octal / Hexadécimal")
+  Ecrire_nl("2. Binaire -> Décimal")
+  Ecrire_nl("3. Octal -> Décimal")
+  Ecrire_nl("4. Hexadécimal -> Décimal")
+  Ecrire_nl("5. Conversion générique (base quelconque 2..16)")
+  Répéter
+    Ecrire("Votre choix (1 à 5) : ")
+    Lire(choix)
+  Jusqu'à choix ∈ [1 .. 5]
+
+  Selon choix
+    1 :
+      Répéter
+        Ecrire("Donner un entier positif : ")
+        Lire(n)
+      Jusqu'à n >= 0
+      Ecrire_nl("Binaire     : ", DecVersBinaire(n))
+      Ecrire_nl("Octal       : ", DecVersOctal(n))
+      Ecrire_nl("Hexadécimal : ", DecVersHexa(n))
+    2 :
+      Ecrire("Donner un nombre binaire : ")
+      Lire(ch)
+      Ecrire_nl("Décimal : ", BinaireVersDec(ch))
+    3 :
+      Ecrire("Donner un nombre octal : ")
+      Lire(ch)
+      Ecrire_nl("Décimal : ", OctalVersDec(ch))
+    4 :
+      Ecrire("Donner un nombre hexadécimal : ")
+      Lire(ch)
+      Ecrire_nl("Décimal : ", HexaVersDec(ch))
+    5 :
+      Répéter
+        Ecrire("Donner la base (2 à 16) : ")
+        Lire(base)
+      Jusqu'à base ∈ [2 .. 16]
+      Répéter
+        Ecrire("Donner un entier positif : ")
+        Lire(n)
+      Jusqu'à n >= 0
+      ch <- DecVersBase(n, base)
+      Ecrire_nl("En base ", base, " : ", ch)
+      Ecrire_nl("Retour en décimal : ", BaseVersDec(ch, base))
+  Fin Selon
+FIN
+
+Tableau de déclaration des objets globaux
+Objet            Type / Nature
+DecVersBinaire   Fonction
+BinaireVersDec   Fonction
+DecVersOctal     Fonction
+OctalVersDec     Fonction
+DecVersHexa      Fonction
+HexaVersDec      Fonction
+DecVersBase      Fonction
+BaseVersDec      Fonction
+choix, n, base   Entier
+ch               Chaîne

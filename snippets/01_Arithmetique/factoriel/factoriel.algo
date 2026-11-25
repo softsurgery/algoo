@@ -1,0 +1,27 @@
+Fonction Factoriel(n: Entier) : Entier
+DEBUT
+  res <- 1
+  Pour i de 2 à n Faire
+    res <- res * i
+  Fin Pour
+  Retourner res
+FIN
+
+Tableau de déclaration des objets locaux
+Objet   Type / Nature
+res, i  Entier
+
+ALGORITHME CalculFactoriel
+DEBUT
+  Répéter
+    Ecrire("Donner un entier positif n : ")
+    Lire(n)
+  Jusqu'à n >= 0
+
+  Ecrire_nl(n, "! = ", Factoriel(n))
+FIN
+
+Tableau de déclaration des objets globaux
+Objet       Type / Nature
+Factoriel   Fonction
+n           Entier
