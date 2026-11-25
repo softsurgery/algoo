@@ -68,7 +68,7 @@ class SubprogramTranslator:
         from compiler.validator import AlgoValidator
 
         # Extract local TDOL variables and combine with parameter types
-        tdol_vars, _ = AlgoValidator.extract_table_declarations(subprog.get('tdo', []))
+        tdol_vars, _ = AlgoValidator.extract_table_declarations(subprog.get('tdo', []), preserve_case=True)
         all_locals = dict(tdol_vars)
         all_locals.update(local_types)
 

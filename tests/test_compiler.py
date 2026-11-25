@@ -458,6 +458,36 @@ class TestAlgoTranspiler(unittest.TestCase):
             '(T[0] <= x <= T[n - 1])',
         )
 
+    def test_tdol_preserves_variable_case(self):
+        """Verifies TDOL local variable declarations preserve uppercase/mixed case."""
+        algo = """
+        Procedure TestCase(n: Entier)
+        DEBUT
+          T[0] <- n
+          Ecrire(T[0])
+        FIN
+        Tableau de déclaration des objets locaux
+        Objet          Type / Nature
+        T              Tableau de 10 Entier
+
+        ALGORITHME Main
+        DEBUT
+          TestCase(42)
+        FIN
+        Tableau de déclaration des objets globaux
+        Objet          Type / Nature
+        TestCase       Procédure
+        """
+        py = self.transpiler.compile(algo)
+        self.assertIn("T = array([0] * (10))", py)
+        self.assertNotIn("t = array", py)
+        import io, contextlib
+        buf = io.StringIO()
+        ns = {'__name__': '__main__'}
+        with contextlib.redirect_stdout(buf):
+            exec(py, ns)
+        self.assertEqual(buf.getvalue().strip(), "42")
+
 
 if __name__ == '__main__':
     unittest.main()
