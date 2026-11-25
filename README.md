@@ -10,7 +10,7 @@ Environnement de Développement Intégré (IDE) moderne développé par **[softs
 
 ### 1. Interface Moderne et Ergonomique (Inspirée de Thonny)
 - **Barre d'outils ergonomique :** Boutons iconographiques larges et modernes pour `Nouveau`, `Ouvrir`, `Enregistrer`, `Exécuter` (Vert F5), `Traduire en Python` (Bleu/Or F6), `Arrêter` (Rouge Échap), menu déroulant `Exemples Bac` et bascule `Thème Clair / Sombre`.
-- **Barre d'insertion rapide de symboles algorithmiques :** Insertion en un clic des symboles algorithmiques usuels (`←`, `≠`, `≤`, `≥`, `∈`, `[vi .. vf]`, `{..}`, `Div`, `Mod`) ainsi que des blocs de structures conditionnelles et itératives.
+- **Barre d'insertion rapide de symboles algorithmiques :** Insertion en un clic des symboles algorithmiques usuels (`←`, `≠`, `≤`, `≥`, `∈`, `[vi .. vf]`, `{..}`, `Div`, `Mod`) ainsi que des blocs de structures conditionnelles et itératives (`Si`, `Pour`, `Tant que`, `Répéter`, `Selon`) avec conservation automatique de l'indentation courante sur tout le bloc.
 - **Éditeur d'algorithmes multi-onglets :**
   - Numérotation des lignes avec surbrillance de la ligne active.
   - Coloration syntaxique complète pour les algorithmes (mots-clés, types simples et structurés, fonctions prédéfinies, opérateurs, chaînes et commentaires).
@@ -25,8 +25,9 @@ Environnement de Développement Intégré (IDE) moderne développé par **[softs
 ### 2. Panneau Latéral Multifonctionnel
 - **Code Python généré :** Affichage en temps réel du code Python 3 traduit selon les règles d'implémentation (utilisation de `numpy.array`, dictionnaires pour les enregistrements, `match/case` pour les Selon, imports modulaires, conversions automatiques). Possibilité de copier le code ou de l'exporter en `.py`.
 - **Inspecteur de Variables :** Affichage tabulaire des variables actives, leurs types algorithmiques et leurs valeurs.
-- **Tableau T.D.O. :** Visualisation et analyse automatique du Tableau de Déclaration des Objets (Objets, Types/Natures, et équivalences Python).
-- **Assistant & Guide :** Fiches de synthèse et aide-mémoire avec conseils pédagogiques automatiques lors d'erreurs de syntaxe ou d'exécution.
+- **Tableau T.D.O. & T.D.N.T. :** Visualisation et analyse automatique du Tableau de Déclaration des Objets (Objets, Types/Natures, et équivalences Python) et des Nouveaux Types.
+- **Snippets & Collections :** Bibliothèque de codes algorithmiques organisés par collections avec fiches explicatives Markdown et insertion directe dans l'éditeur.
+- **Assistant & Guide :** Fiches de synthèse et aide-mémoire avec coloration syntaxique haute visibilité (modes clair et sombre) et conseils pédagogiques automatiques lors d'erreurs de syntaxe ou d'exécution.
 
 ---
 
@@ -71,7 +72,7 @@ python3 -m unittest discover tests
 
 ---
 
-## Exemples Inclus
+## Exemples & Snippets Inclus
 
 Les exemples suivants sont intégrés dans le menu **Exemples Bac** :
 1. `somme_diviseurs.algo` : Recherche d'un nombre parfait (boucle Pour, Div, Mod).
@@ -79,6 +80,14 @@ Les exemples suivants sont intégrés dans le menu **Exemples Bac** :
 3. `palindrome.algo` : Sous-programme (Fonction), manipulation de chaînes (`Long`, `Majus`) et boucle `Tant que`.
 4. `matrice_alea.algo` : Tableaux NumPy 2D (lignes * colonnes) et parcours imbriqué.
 5. `gestion_eleves.algo` : Enregistrement (`dict`) et structure à choix multiples (`Selon`).
+
+### Collections de Snippets (`snippets/`)
+- **01_Arithmetique** : `nombre_premier`, `somme_diviseurs`, `factoriel`, `puissance`, `conversions_bases` (binaire, octal, hexadécimal ↔ décimal, fonctions dédiées et générique).
+- **02_Chaines_et_Conditions** : `chaine_alphabetique`, `palindrome`, `ord_chr` (codes ASCII `Ord`/`Chr`), `chiffrement_cesar` (chiffrement et déchiffrement de César).
+- **03_Tris_et_Tableaux** : `tri_bulles`, `tri_insertion`, `tri_selection`, `tri_shell`, `recherche_dichotomique`.
+- **04_Matrices** : `inverser_matrice`, `matrice_alea`.
+- **05_Structures_et_Enregistrements** : `gestion_eleves`, `players_ranking`.
+- **06_Recursive** : `rec_factoriel`, `rec_puissance`, `rec_affichage_tableau` (2 méthodes : avec compteur `i` et en tronquant `n`).
 
 ---
 
