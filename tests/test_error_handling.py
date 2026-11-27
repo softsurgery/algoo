@@ -141,6 +141,32 @@ class TestConsoleErrorHandling(unittest.TestCase):
         self.assertNotIn("OLD_EXECUTION_TRACE_12345", plain)
         self.assertIn("Erreur de compilation", plain)
 
+    def test_console_stdout_preserves_chunked_spaces_and_newlines(self):
+        console = self.win.console
+        console.clear_console()
+        console.output_text.append("<span style='color: #10b981; font-weight: bold;'>% Exécution de l'algorithme...</span><br>")
+
+        class _FakeProcess:
+            def __init__(self, chunks):
+                self._chunks = list(chunks)
+
+            def readAllStandardOutput(self):
+                class _Buf:
+                    def __init__(self, payload):
+                        self._payload = payload
+                    def data(self):
+                        return self._payload
+                return _Buf(self._chunks.pop(0))
+
+        chunks = [b"1", b" ", b"1", b" ", b"1", b" ", b"0\n", b"1  1  0\n"]
+        console.process = _FakeProcess(chunks)
+        for _ in range(len(chunks)):
+            console._on_stdout_ready()
+        console.process = None
+
+        plain = console.output_text.toPlainText()
+        self.assertIn("1 1 1 0\n1  1  0\n", plain)
+
 
 if __name__ == "__main__":
     unittest.main()

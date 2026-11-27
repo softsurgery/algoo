@@ -8,11 +8,12 @@ import sys
 import os
 import tempfile
 import re
+import codecs
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit,
     QPushButton, QLabel
 )
-from PyQt5.QtGui import QColor, QTextCursor, QFont
+from PyQt5.QtGui import QColor, QTextCursor, QTextCharFormat, QFont
 from PyQt5.QtCore import Qt, QProcess, pyqtSignal
 from ui.components import AppCloseButton
 from ui.platform_utils import get_bundle_dir, is_frozen
@@ -98,6 +99,8 @@ class AlgoConsole(QWidget):
         self.process = None
         self.temp_script_path = None
         self.current_font_size = 10
+        self._stdout_decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+        self._stderr_decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
 
         self._setup_ui()
         self.set_dark_mode(is_dark)
@@ -263,6 +266,8 @@ class AlgoConsole(QWidget):
             f.write(full_code)
 
         self.temp_script_path = temp_path
+        self._stdout_decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+        self._stderr_decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
 
         self.process = QProcess(self)
         self.process.setWorkingDirectory(algo_dir)
@@ -298,20 +303,37 @@ class AlgoConsole(QWidget):
         else:
             self.process.start(sys.executable, ["-u", temp_path])
 
+    def _append_plain_text(self, text: str, color: str, bold: bool = False):
+        """Appends plain text with explicit formatting, preserving all whitespace across chunks."""
+        if not text:
+            return
+        normalized = text.replace('\r\n', '\n').replace('\r', '\n')
+        cursor = self.output_text.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        fmt = QTextCharFormat()
+        fmt.setForeground(QColor(color))
+        fmt.setFontWeight(QFont.Bold if bold else QFont.Normal)
+        cursor.insertText(normalized, fmt)
+        self.output_text.setTextCursor(cursor)
+        self.output_text.ensureCursorVisible()
+
     def _on_stdout_ready(self):
         if not self.process:
             return
-        data = self.process.readAllStandardOutput().data().decode('utf-8', errors='replace')
-        # Format stdout
+        raw = bytes(self.process.readAllStandardOutput().data())
+        data = self._stdout_decoder.decode(raw)
+        if not data:
+            return
         text_color = "#1e293b" if not self.is_dark else "#cdd6f4"
-        escaped = data.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br>')
-        self.output_text.insertHtml(f"<span style='color: {text_color};'>{escaped}</span>")
-        self.output_text.moveCursor(QTextCursor.End)
+        self._append_plain_text(data, text_color)
 
     def _on_stderr_ready(self):
         if not self.process:
             return
-        data = self.process.readAllStandardError().data().decode('utf-8', errors='replace')
+        raw = bytes(self.process.readAllStandardError().data())
+        data = self._stderr_decoder.decode(raw)
+        if not data:
+            return
         err_color = "#dc2626" if not self.is_dark else "#f38ba8"
 
         # Check if traceback has line number in our temp file
@@ -320,9 +342,7 @@ class AlgoConsole(QWidget):
             err_line = int(m.group(1))
             self.error_line_clicked.emit(err_line)
 
-        escaped = data.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br>')
-        self.output_text.insertHtml(f"<span style='color: {err_color}; font-weight: bold;'>{escaped}</span>")
-        self.output_text.moveCursor(QTextCursor.End)
+        self._append_plain_text(data, err_color, bold=True)
 
     def log_error(self, message: str, traceback_text: str = None):
         """Logs an error message (and optional traceback) to the console output."""
@@ -383,9 +403,7 @@ class AlgoConsole(QWidget):
         if self.is_running():
             # Echo input in console
             input_color = "#7c3aed" if not self.is_dark else "#cba6f7"
-            escaped = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-            self.output_text.insertHtml(f"<span style='color: {input_color}; font-weight: bold;'>{escaped}</span><br>")
-            self.output_text.moveCursor(QTextCursor.End)
+            self._append_plain_text(f"{text}\n", input_color, bold=True)
 
             # Send to process stdin
             bytes_data = (text + "\n").encode('utf-8')
